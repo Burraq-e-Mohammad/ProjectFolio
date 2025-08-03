@@ -11,6 +11,10 @@ A full-stack project portfolio application with React frontend and Node.js backe
 
 This project is configured for deployment on Vercel with proper build settings.
 
+## Latest Update
+
+Build configuration has been updated to fix TypeScript permission issues.
+
 ## 🔧 Features
 
 ### For Sellers
