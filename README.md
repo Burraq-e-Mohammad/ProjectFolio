@@ -1,89 +1,15 @@
-# ProjectFolio - Full Stack Project Marketplace
+# ProjectFolio
 
-A comprehensive full-stack application for buying and selling software projects, built with modern technologies and secure payment processing.
+A full-stack project portfolio application with React frontend and Node.js backend.
 
-## 🏗️ Architecture
+## Project Structure
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Shadcn/UI** for modern, accessible components
-- **Tailwind CSS** for styling
-- **React Router** for navigation
-- **TanStack Query** for data fetching and caching
-- **Axios** for API communication
-- **React Hook Form** with Zod validation
-- **Manual Payment System** for secure transactions
-- **Google Authentication** integration
+- `client/` - React frontend application
+- `server/` - Node.js backend API
 
-### Backend
-- **Node.js** with Express.js
-- **MongoDB** with Mongoose ODM
-- **JWT** for authentication
-- **Manual Payment System** with escrow protection
-- **Cloudinary** for image uploads
-- **Google OAuth** integration
-- **Nodemailer** for email notifications
-- **Security middleware** (helmet, rate limiting, CORS, etc.)
+## Deployment
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB (local or cloud)
-- Cloudinary account
-- Google OAuth credentials
-- Email service account
-
-### Backend Setup
-
-1. **Navigate to server directory:**
-   ```bash
-   cd server
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Create environment file:**
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Configure environment variables** (see .env.example for required variables)
-
-5. **Start the server:**
-   ```bash
-   npm start
-   ```
-
-### Frontend Setup
-
-1. **Navigate to client directory:**
-   ```bash
-   cd client
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Create environment file:**
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Configure environment variables** (see .env.example for required variables)
-
-5. **Start the development server:**
-   ```bash
-   npm run dev
-   # or
-   npm start
-   ```
+This project is configured for deployment on Vercel with proper build settings.
 
 ## 🔧 Features
 
