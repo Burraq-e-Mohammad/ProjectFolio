@@ -165,14 +165,14 @@ exports.login = async (req, res) => {
   }
 };
 
-const client = new OAuth2Client('214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com');
 
 exports.googleRegister = async (req, res) => {
   const { token } = req.body;
   try {
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: '214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com',
+      audience: process.env.GOOGLE_CLIENT_ID || '214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com',
     });
     const payload = ticket.getPayload();
     const { sub, email, name } = payload;
@@ -221,27 +221,67 @@ exports.googleRegister = async (req, res) => {
     });
   } catch (err) {
     console.error('Google auth error:', err);
-    res.status(401).json({ message: 'Google registration failed', error: err.message });
+    console.error('Error details:', {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Google registration failed';
+    let statusCode = 401;
+    
+    if (err.message.includes('audience')) {
+      errorMessage = 'Invalid Google client configuration';
+      statusCode = 400;
+    } else if (err.message.includes('token')) {
+      errorMessage = 'Invalid Google token';
+      statusCode = 400;
+    } else if (err.message.includes('network')) {
+      errorMessage = 'Network error during Google authentication';
+      statusCode = 500;
+    } else if (err.message.includes('User already exists')) {
+      errorMessage = 'User already exists with this Google account. Please log in instead.';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      message: errorMessage, 
+      error: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
 exports.googleLogin = async (req, res) => {
-  console.log('Google login request body:', req.body);
   const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({ message: 'No Google token provided' });
+  }
+  
   try {
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: '214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com',
+      audience: process.env.GOOGLE_CLIENT_ID || '214476576993-b4l6n3d4kgkjfe56tradth5dg0osts8h.apps.googleusercontent.com',
     });
     const payload = ticket.getPayload();
     const { sub, email, name } = payload;
 
     // Check for existing user by googleId or email
     let user = await User.findOne({ $or: [{ googleId: sub }, { email }] });
+    
     if (!user) {
       return res.status(400).json({
         message: 'No account found with this Google account or email. Please register first.'
       });
+    }
+    
+    // If user exists but doesn't have googleId, update it
+    if (user && !user.googleId) {
+      user.googleId = sub;
+      await user.save();
+      console.log('Updated user with Google ID:', sub);
     }
 
     const jwtToken = jwt.sign(
@@ -266,7 +306,35 @@ exports.googleLogin = async (req, res) => {
     });
   } catch (err) {
     console.error('Google auth error:', err);
-    res.status(500).json({ message: 'Internal server error', error: err.message });
+    console.error('Error details:', {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Google login failed';
+    let statusCode = 500;
+    
+    if (err.message.includes('audience')) {
+      errorMessage = 'Invalid Google client configuration';
+      statusCode = 400;
+    } else if (err.message.includes('token')) {
+      errorMessage = 'Invalid Google token';
+      statusCode = 400;
+    } else if (err.message.includes('network')) {
+      errorMessage = 'Network error during Google authentication';
+      statusCode = 500;
+    } else if (err.message.includes('No account found')) {
+      errorMessage = 'No account found with this Google account. Please register first.';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      message: errorMessage, 
+      error: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
@@ -584,5 +652,81 @@ exports.createAdmin = async (req, res) => {
   } catch (err) {
     console.error('Create admin error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Admin Authentication
+exports.adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find admin user by email
+    const adminUser = await User.findOne({ email, role: 'admin' });
+    if (!adminUser) {
+      return res.status(401).json({ 
+        message: 'Invalid admin credentials' 
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, adminUser.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        message: 'Invalid admin credentials' 
+      });
+    }
+
+    // Create admin JWT token
+    const token = jwt.sign(
+      { 
+        userId: adminUser._id, 
+        email: adminUser.email, 
+        role: adminUser.role 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Admin login successful',
+      token,
+      user: {
+        _id: adminUser._id,
+        email: adminUser.email,
+        firstName: adminUser.firstName,
+        lastName: adminUser.lastName,
+        role: adminUser.role,
+        name: `${adminUser.firstName} ${adminUser.lastName}`
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Validate Admin Token
+exports.validateAdminToken = async (req, res) => {
+  try {
+    // The authMiddleware has already verified the token and set req.user
+    // We just need to check if the user is an admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'Access denied. Admin privileges required.' 
+      });
+    }
+
+    // Token is valid and user is admin
+    res.json({
+      message: 'Admin token is valid',
+      user: {
+        _id: req.user.userId,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Admin token validation error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

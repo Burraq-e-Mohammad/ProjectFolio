@@ -7,7 +7,7 @@ const cloudinary = require('../utils/cloudinary');
 const sendMessage = async (req, res) => {
   try {
     const { projectId, receiverId, content, messageType = 'text' } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user.userId;
 
     // Validate project exists and user is involved
     const project = await Project.findById(projectId);
@@ -56,7 +56,7 @@ const sendMessage = async (req, res) => {
 const uploadAttachment = async (req, res) => {
   try {
     const { projectId, receiverId, content, messageType = 'file' } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -116,7 +116,7 @@ const uploadAttachment = async (req, res) => {
 const getConversation = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { page = 1, limit = 50 } = req.query;
 
     // Validate project exists and user is involved
@@ -170,7 +170,7 @@ const getConversation = async (req, res) => {
 // Get user's conversations
 const getUserConversations = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { page = 1, limit = 10 } = req.query;
 
     // Get projects where user is involved
@@ -286,7 +286,7 @@ const getUserConversations = async (req, res) => {
 const markAsRead = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Validate project exists and user is involved
     const project = await Project.findById(projectId);
@@ -327,7 +327,7 @@ const markAsRead = async (req, res) => {
 // Get unread message count
 const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Get projects where user is involved
     const projects = await Project.find({

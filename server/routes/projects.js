@@ -1,16 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { createProject, getProjects, getProjectById, updateProject, deleteProject, getMyProjects, getPendingProjects, approveProject, rejectProject } = require('../controllers/projectController');
+const { createProject, getProjects, getProjectById, updateProject, deleteProject, getMyProjects, getPendingProjects, approveProject, rejectProject, getAllProjectsForAdmin } = require('../controllers/projectController');
 const auth = require('../middleware/authMiddleware');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../utils/cloudinary');
+const { cloudinary } = require('../utils/cloudinary');
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'projectfolio', // Cloudinary folder name
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif'],
+    transformation: [
+      { width: 800, height: 600, crop: 'fit', quality: 'auto' },
+      { fetch_format: 'auto' }
+    ],
   },
 });
 
@@ -26,6 +30,7 @@ router.put('/:id', auth, upload.array('images', 5), updateProject);
 router.delete('/:id', auth, deleteProject);
 
 // Admin routes for project approval
+router.get('/admin', auth, getAllProjectsForAdmin);
 router.get('/pending', auth, getPendingProjects);
 router.put('/:id/approve', auth, approveProject);
 router.put('/:id/reject', auth, rejectProject);
@@ -43,7 +48,6 @@ router.post('/upload-image', auth, upload.single('image'), async (req, res) => {
       publicId: req.file.filename
     });
   } catch (error) {
-    console.error('Image upload error:', error);
     res.status(500).json({ message: 'Failed to upload image' });
   }
 });

@@ -11,13 +11,6 @@ const {
 } = require('../controllers/paymentController');
 
 function debugRouterUse(router, ...args) {
-  if (typeof args[0] === 'string') {
-    console.log('Registering sub-route:', args[0]);
-  } else if (typeof args[0] === 'function') {
-    console.log('Registering sub-route middleware:', args[0].name || '[anonymous function]');
-  } else {
-    console.log('Registering sub-route (unknown type):', args[0]);
-  }
   return router.use(...args);
 }
 

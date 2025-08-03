@@ -25,4 +25,8 @@ router.put('/password', authMiddleware, authController.updatePassword);
 // Create admin user (for initial setup)
 router.post('/create-admin', authController.createAdmin);
 
+// Admin routes
+router.post('/admin/login', authController.adminLogin);
+router.get('/admin/validate-token', authMiddleware, authController.validateAdminToken);
+
 module.exports = router;

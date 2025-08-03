@@ -15,23 +15,12 @@ const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
-  console.error('❌ Missing required environment variables:', missingEnvVars);
-  console.error('Please create a .env file with the following variables:');
-  missingEnvVars.forEach(varName => {
-    console.error(`  ${varName}=your_value_here`);
-  });
   process.exit(1);
 }
 
-console.log('✅ All required environment variables are set');
-
 // Check email configuration
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.warn('⚠️  Email configuration is missing. Email verification will not work.');
-  console.warn('Please set EMAIL_USER and EMAIL_PASS environment variables.');
-  console.warn('See EMAIL_SETUP.md for detailed instructions.');
-} else {
-  console.log('✅ Email configuration is set up');
+  // Email configuration is missing
 }
 
 const authRoutes = require('./routes/auth');
@@ -43,6 +32,7 @@ const contactRoutes = require('./routes/contact');
 
 // New routes for payment and trust system
 const paymentRoutes = require('./routes/payments');
+const manualPaymentRoutes = require('./routes/manualPayments');
 const verificationRoutes = require('./routes/verification');
 const communicationRoutes = require('./routes/communication');
 const disputeRoutes = require('./routes/disputes');
@@ -67,13 +57,12 @@ const app = express();
 
 // Request logger (must be first to catch all requests)
 app.use((req, res, next) => {
-  console.log('Incoming request:', req.method, req.url, req.body);
   next();
 });
 
 // 1. CORS Middleware (must be first)
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
@@ -111,7 +100,8 @@ const fs = require('fs');
 const uploadDirs = [
   'uploads/verification',
   'uploads/messages',
-  'uploads/disputes'
+  'uploads/disputes',
+  'uploads/payments'
 ];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
@@ -127,6 +117,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/instructions', instructionsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/manual-payments', manualPaymentRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/disputes', disputeRoutes);
@@ -136,12 +127,6 @@ app.use('/api/disputes', disputeRoutes);
 
 // 9. General error handling middleware
 app.use((err, req, res, next) => {
-  console.error('=== SERVER ERROR ===');
-  console.error('Error type:', err.constructor.name);
-  console.error('Error message:', err.message);
-  console.error('Error stack:', err.stack);
-  console.error('Full error object:', err);
-  
   // Always show detailed errors in development
   res.status(500).json({ 
     message: 'Server error', 

@@ -1,6 +1,6 @@
 const Verification = require('../models/Verification');
 const User = require('../models/User');
-const cloudinary = require('../utils/cloudinary');
+const { cloudinary } = require('../utils/cloudinary');
 
 // Submit verification request
 const submitVerification = async (req, res) => {
@@ -49,7 +49,7 @@ const submitVerification = async (req, res) => {
 const uploadDocument = async (req, res) => {
   try {
     const { verificationId, documentType } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -94,7 +94,7 @@ const uploadDocument = async (req, res) => {
 // Get user's verification status
 const getUserVerification = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     const verifications = await Verification.find({ userId })
       .sort({ createdAt: -1 });
@@ -152,7 +152,7 @@ const reviewVerification = async (req, res) => {
   try {
     const { verificationId } = req.params;
     const { status, reviewNotes } = req.body;
-    const adminId = req.user.id;
+    const adminId = req.user.userId;
 
     // Check if user is admin
     if (req.user.role !== 'admin') {

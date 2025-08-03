@@ -7,7 +7,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const createEscrowPayment = async (req, res) => {
   try {
     const { projectId, amount, paymentMethod } = req.body;
-    const customerId = req.user.id;
+    const customerId = req.user.userId;
 
     // Validate project exists and is available
     const project = await Project.findById(projectId);
@@ -136,7 +136,7 @@ const releasePayment = async (req, res) => {
     }
 
     // Only customer or admin can release payment
-    if (role !== 'admin' && escrowAccount.customerId.toString() !== req.user.id) {
+    if (role !== 'admin' && escrowAccount.customerId.toString() !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized to release payment' });
     }
 
@@ -204,8 +204,8 @@ const getEscrowAccount = async (req, res) => {
     }
 
     // Check authorization
-    if (escrowAccount.customerId._id.toString() !== req.user.id && 
-        escrowAccount.clientId._id.toString() !== req.user.id &&
+    if (escrowAccount.customerId._id.toString() !== req.user.userId && 
+        escrowAccount.clientId._id.toString() !== req.user.userId &&
         req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to view this escrow account' });
     }
@@ -221,7 +221,7 @@ const getEscrowAccount = async (req, res) => {
 // Get user's escrow accounts
 const getUserEscrowAccounts = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { status, page = 1, limit = 10 } = req.query;
 
     const query = {
@@ -270,7 +270,7 @@ const refundPayment = async (req, res) => {
     }
 
     // Only customer or admin can request refund
-    if (role !== 'admin' && escrowAccount.customerId.toString() !== req.user.id) {
+    if (role !== 'admin' && escrowAccount.customerId.toString() !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized to request refund' });
     }
 

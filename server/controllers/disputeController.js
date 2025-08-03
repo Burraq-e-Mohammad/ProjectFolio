@@ -14,7 +14,7 @@ const createDispute = async (req, res) => {
       title, 
       description 
     } = req.body;
-    const initiatorId = req.user.id;
+    const initiatorId = req.user.userId;
 
     // Validate escrow account exists
     const escrowAccount = await EscrowAccount.findById(escrowAccountId);
@@ -83,7 +83,7 @@ const uploadEvidence = async (req, res) => {
   try {
     const { disputeId } = req.params;
     const { evidenceType, title, description } = req.body;
-    const uploadedBy = req.user.id;
+    const uploadedBy = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -135,7 +135,7 @@ const addDisputeMessage = async (req, res) => {
   try {
     const { disputeId } = req.params;
     const { content, isInternal = false } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user.userId;
 
     const dispute = await Dispute.findById(disputeId);
     if (!dispute) {
@@ -180,7 +180,7 @@ const addDisputeMessage = async (req, res) => {
 const getDispute = async (req, res) => {
   try {
     const { disputeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     const dispute = await Dispute.findById(disputeId)
       .populate('initiatorId', 'name email')
@@ -211,7 +211,7 @@ const getDispute = async (req, res) => {
 // Get user's disputes
 const getUserDisputes = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { status, page = 1, limit = 10 } = req.query;
 
     const query = {
@@ -293,7 +293,7 @@ const resolveDispute = async (req, res) => {
       description, 
       notes 
     } = req.body;
-    const resolvedBy = req.user.id;
+    const resolvedBy = req.user.userId;
 
     // Check if user is admin
     if (req.user.role !== 'admin') {

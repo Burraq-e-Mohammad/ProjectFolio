@@ -1,7 +1,8 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
 const mongoose = require('mongoose');
-const cloudinary = require('../utils/cloudinary');
+const { cloudinary } = require('../utils/cloudinary');
+const { sendProjectApprovalNotification, sendProjectApprovedNotification } = require('../utils/emailService');
 
 exports.createProject = async (req, res) => {
   try {
@@ -43,12 +44,16 @@ exports.createProject = async (req, res) => {
         return res.status(400).json({ message: 'Maximum 5 images allowed' });
       }
       
-      // Upload images to Cloudinary
+      // Upload images to Cloudinary with optimization
       const uploadPromises = req.files.map(async (file) => {
         try {
           const result = await cloudinary.uploader.upload(file.path, {
             folder: 'project_images',
-            resource_type: 'auto'
+            resource_type: 'auto',
+            transformation: [
+              { width: 800, height: 600, crop: 'fit', quality: 'auto' },
+              { fetch_format: 'auto' }
+            ]
           });
           return result.secure_url;
         } catch (uploadError) {
@@ -60,10 +65,77 @@ exports.createProject = async (req, res) => {
       imagePaths = await Promise.all(uploadPromises);
     }
     
-    // Make images optional for now
-    // if (imagePaths.length === 0) {
-    //   return res.status(400).json({ message: 'At least one image is required' });
-    // }
+    // Add default image if no images provided
+    if (imagePaths.length === 0) {
+      // Use a category-specific default image with random variations
+      const defaultImages = {
+        'Web Application': [
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop'
+        ],
+        'Mobile App': [
+          'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop'
+        ],
+        'Desktop Software': [
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop'
+        ],
+        'AI/ML': [
+          'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1673187736167-4d9c0ac262df?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1673187736167-4d9c0ac262df?w=400&h=300&fit=crop'
+        ],
+        'Business Software': [
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Analytics': [
+          'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Finance': [
+          'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop'
+        ],
+        'E-commerce': [
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Game Development': [
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop'
+        ],
+        'DevOps Tools': [
+          'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop'
+        ]
+      };
+      
+      const categoryImages = defaultImages[category] || defaultImages['Web Application'];
+      const randomIndex = Math.floor(Math.random() * categoryImages.length);
+      const defaultImage = categoryImages[randomIndex];
+      imagePaths = [defaultImage];
+    }
     
     const project = new Project({
       title: title.trim(),
@@ -82,6 +154,14 @@ exports.createProject = async (req, res) => {
     // Populate seller info
     await project.populate('seller', 'firstName lastName email isVerified verificationStatus');
     
+    // Send email notification to admin
+    try {
+      await sendProjectApprovalNotification(project, project.seller);
+    } catch (emailError) {
+      console.error('Failed to send project approval notification:', emailError);
+      // Don't fail the request if email fails
+    }
+    
     res.status(201).json({
       message: 'Project created successfully',
       project
@@ -99,7 +179,7 @@ exports.getProjects = async (req, res) => {
     console.log('Request headers:', req.headers);
     
     const { category, search, page = 1, limit = 12 } = req.query;
-    let filter = { status: { $in: ['available', 'pending'] } }; // Show both approved and pending projects
+    let filter = { status: 'available' }; // Only show approved projects
     
     if (category) {
       filter.category = category;
@@ -133,11 +213,13 @@ exports.getProjects = async (req, res) => {
     console.log('First project sample:', projects[0]);
     
     res.json({
-      projects,
-      total,
-      page: parseInt(page),
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum)
+      data: {
+        projects,
+        total,
+        page: parseInt(page),
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
     });
   } catch (err) {
     console.error('=== GET PROJECTS ERROR ===');
@@ -151,9 +233,19 @@ exports.getProjects = async (req, res) => {
 
 exports.getProjectById = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id).populate('seller', 'firstName lastName email');
+    const project = await Project.findById(req.params.id).populate('seller', 'firstName lastName email username');
     if (!project) return res.status(404).json({ message: 'Project not found' });
-    res.json(project);
+    
+    // Check if user is admin (allow admins to see all projects)
+    const isAdmin = req.user && req.user.role === 'admin';
+    
+    // For non-admin users, only show approved projects
+    if (!isAdmin && project.status !== 'available') {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    // Return in the format expected by frontend
+    res.json({ data: project });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -161,8 +253,8 @@ exports.getProjectById = async (req, res) => {
 
 exports.getMyProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ seller: req.user.userId }).populate('seller', 'firstName lastName email');
-    res.json(projects);
+    const projects = await Project.find({ seller: req.user.userId }).populate('seller', 'firstName lastName email username');
+    res.json({ data: projects });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -227,10 +319,103 @@ exports.updateProject = async (req, res) => {
     project.category = category;
     project.price = price;
     
-    // Update image if new one is uploaded
-    if (req.file) {
-      project.images = [req.file.path];
-      console.log('New image uploaded:', req.file.path);
+    // Handle images update
+    if (req.body.images && Array.isArray(req.body.images)) {
+      project.images = req.body.images;
+      console.log('Images updated:', req.body.images);
+    } else if (req.files && req.files.length > 0) {
+      // Upload new images to Cloudinary
+      const uploadPromises = req.files.map(async (file) => {
+        try {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'project_images',
+            resource_type: 'auto',
+            transformation: [
+              { width: 800, height: 600, crop: 'fit', quality: 'auto' },
+              { fetch_format: 'auto' }
+            ]
+          });
+          return result.secure_url;
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          throw new Error('Failed to upload image');
+        }
+      });
+      
+      project.images = await Promise.all(uploadPromises);
+      console.log('New images uploaded:', project.images);
+    }
+    
+    // Add default image if no images provided
+    if (!project.images || project.images.length === 0) {
+      const defaultImages = {
+        'Web Application': [
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop'
+        ],
+        'Mobile App': [
+          'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop'
+        ],
+        'Desktop Software': [
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop'
+        ],
+        'AI/ML': [
+          'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1673187736167-4d9c0ac262df?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1673187736167-4d9c0ac262df?w=400&h=300&fit=crop'
+        ],
+        'Business Software': [
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Analytics': [
+          'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Finance': [
+          'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop'
+        ],
+        'E-commerce': [
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop'
+        ],
+        'Game Development': [
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop'
+        ],
+        'DevOps Tools': [
+          'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&h=300&fit=crop',
+          'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop'
+        ]
+      };
+      
+      const categoryImages = defaultImages[category] || defaultImages['Web Application'];
+      const randomIndex = Math.floor(Math.random() * categoryImages.length);
+      const defaultImage = categoryImages[randomIndex];
+      project.images = [defaultImage];
+      console.log('Default image added:', defaultImage);
     }
     
     console.log('Saving updated project...');
@@ -247,7 +432,7 @@ exports.updateProject = async (req, res) => {
     
     // Populate seller info before sending response
     await project.populate('seller', 'firstName lastName email');
-    res.json(project);
+    res.json({ data: project });
   } catch (err) {
     console.error('=== SERVER UPDATE ERROR ===');
     console.error('Error type:', err.constructor.name);
@@ -294,6 +479,25 @@ exports.deleteProject = async (req, res) => {
   }
 };
 
+// Get all projects for admin (all statuses)
+exports.getAllProjectsForAdmin = async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const projects = await Project.find({})
+      .populate('seller', 'firstName lastName email')
+      .sort({ createdAt: -1 });
+
+    res.json({ projects });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Get pending projects for admin approval
 exports.getPendingProjects = async (req, res) => {
   try {
@@ -329,6 +533,17 @@ exports.approveProject = async (req, res) => {
 
     project.status = 'available';
     await project.save();
+
+    // Populate seller info for email notification
+    await project.populate('seller', 'firstName lastName email');
+
+    // Send email notification to seller
+    try {
+      await sendProjectApprovedNotification(project, project.seller);
+    } catch (emailError) {
+      console.error('Failed to send project approval notification to seller:', emailError);
+      // Don't fail the request if email fails
+    }
 
     res.json({ message: 'Project approved successfully', project });
   } catch (err) {
