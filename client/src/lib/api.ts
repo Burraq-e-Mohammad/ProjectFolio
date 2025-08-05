@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
-const baseURL = import.meta.env.VITE_API_URL || '/api';
+const baseURL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD 
+    ? 'https://eloquent-reprieve-production.up.railway.app' // Your actual Railway URL
+    : '/api'
+  );
 
 const api = axios.create({
   baseURL: baseURL,
