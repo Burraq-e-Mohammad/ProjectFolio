@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 const TestBackendConnection = () => {
   const [status, setStatus] = useState<string>('');
@@ -52,22 +54,18 @@ const TestBackendConnection = () => {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 border rounded-lg bg-white shadow-sm">
-      <h2 className="text-xl font-semibold mb-4">Backend Connection Test</h2>
-      <div className="space-y-4">
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Backend Connection Test</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
         <div className="flex gap-2">
-          <button 
-            onClick={testRailwayAPI} 
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
+          <Button onClick={testRailwayAPI} variant="outline">
             Test Railway API
-          </button>
-          <button 
-            onClick={testVercelAPI} 
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
+          </Button>
+          <Button onClick={testVercelAPI} variant="outline">
             Test Vercel API
-          </button>
+          </Button>
         </div>
         
         {status && (
@@ -90,8 +88,8 @@ const TestBackendConnection = () => {
             </pre>
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

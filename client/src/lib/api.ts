@@ -7,6 +7,13 @@ const baseURL = import.meta.env.VITE_API_URL ||
     : '/api'
   );
 
+// Debug logging
+console.log('🔧 Environment Variables:');
+console.log('  - VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('  - PROD:', import.meta.env.PROD);
+console.log('  - MODE:', import.meta.env.MODE);
+console.log('🔧 Final Base URL:', baseURL);
+
 const api = axios.create({
   baseURL: baseURL,
   headers: {
@@ -18,6 +25,9 @@ const api = axios.create({
 // Add request logging
 api.interceptors.request.use(
   (config) => {
+    console.log('🚀 API Request:', config.method?.toUpperCase(), config.url);
+    console.log('🚀 Full URL:', config.baseURL + config.url);
+    
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -25,6 +35,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -32,9 +43,13 @@ api.interceptors.request.use(
 // Add response logging
 api.interceptors.response.use(
   (response) => {
+    console.log('✅ API Response:', response.status, response.config.url);
     return response;
   },
   (error) => {
+    console.error('❌ API Error:', error.response?.status, error.config?.url);
+    console.error('❌ Error Response:', error.response?.data);
+    
     // Only redirect to login for 401 errors that are not from auth endpoints or admin endpoints
     if (error.response?.status === 401 && 
         !error.config.url.includes('/auth/') && 
