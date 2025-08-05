@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { projectsAPI } from "@/lib/api";
+import { projectsAPI, categoriesAPI } from "@/lib/api";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProjectCard from "@/components/home/ProjectCard";
@@ -44,9 +44,8 @@ const Browse = () => {
     const loadProjects = async () => {
       try {
         setProjectsLoading(true);
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        setProjects(data);
+        const response = await projectsAPI.getAll();
+        setProjects(response.data);
       } catch (error) {
         // Failed to load projects
       } finally {
@@ -61,9 +60,8 @@ const Browse = () => {
     const loadCategories = async () => {
       try {
         setCategoriesLoading(true);
-        const response = await fetch('/api/categories');
-        const data = await response.json();
-        setCategories(data);
+        const response = await categoriesAPI.getAll();
+        setCategories(response.data);
       } catch (error) {
         // Failed to load categories
       } finally {
