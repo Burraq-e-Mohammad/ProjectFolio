@@ -174,33 +174,22 @@ exports.createProject = async (req, res) => {
 
 exports.getProjects = async (req, res) => {
   try {
-    console.log('=== GET PROJECTS DEBUG ===');
-    console.log('Query parameters:', req.query);
-    console.log('Request headers:', req.headers);
-    
     const { category, search, page = 1, limit = 12 } = req.query;
     let filter = { status: 'available' }; // Only show approved projects
     
     if (category) {
       filter.category = category;
-      console.log('Filtering by category:', category);
     }
     if (search) {
       filter.title = { $regex: search, $options: 'i' };
-      console.log('Filtering by search:', search);
     }
-    
-    console.log('Final filter:', filter);
     
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
     
-    console.log('Pagination - skip:', skip, 'limit:', limitNum);
-    
     // Get total count for pagination
     const total = await Project.countDocuments(filter);
-    console.log('Total projects found:', total);
     
     // Get projects with pagination
     const projects = await Project.find(filter)
@@ -208,9 +197,6 @@ exports.getProjects = async (req, res) => {
       .skip(skip)
       .limit(limitNum)
       .sort({ createdAt: -1 }); // Sort by newest first
-    
-    console.log('Projects returned:', projects.length);
-    console.log('First project sample:', projects[0]);
     
     res.json({
       data: {
@@ -222,11 +208,7 @@ exports.getProjects = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('=== GET PROJECTS ERROR ===');
-    console.error('Error type:', err.constructor.name);
-    console.error('Error message:', err.message);
-    console.error('Error stack:', err.stack);
-    console.error('Full error object:', err);
+    console.error('Get projects error:', err.message);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

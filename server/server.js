@@ -15,6 +15,7 @@ const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars);
   process.exit(1);
 }
 
@@ -62,7 +63,12 @@ app.use((req, res, next) => {
 
 // 1. CORS Middleware (must be first)
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:5173'],
+  origin: [
+    'https://project-folio-pk.vercel.app',
+    'https://project-folio-pk.vercel.app/',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
@@ -109,6 +115,15 @@ uploadDirs.forEach(dir => {
   }
 });
 
+// 6.5. Health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'ProjectFolio API is running',
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 7. Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
@@ -136,21 +151,20 @@ app.use((err, req, res, next) => {
 });
 
 // 10. MongoDB Connection
-console.log('Attempting to connect to MongoDB...');
-console.log('MONGO_URI exists:', !!process.env.MONGO_URI);
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
   console.log('✅ MongoDB connected successfully');
-  console.log('Database:', mongoose.connection.db.databaseName);
 })
 .catch((err) => {
   console.error('❌ MongoDB connection error:', err);
-  console.error('Please check your MONGO_URI in .env file');
+  process.exit(1);
 });
 // 11. Start Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔧 PORT from env: ${process.env.PORT || 'not set'}`);
 });
 
 process.on('uncaughtException', (err) => {

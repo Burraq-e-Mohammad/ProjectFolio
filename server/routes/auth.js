@@ -28,5 +28,6 @@ router.post('/create-admin', authController.createAdmin);
 // Admin routes
 router.post('/admin/login', authController.adminLogin);
 router.get('/admin/validate-token', authMiddleware, authController.validateAdminToken);
+router.get('/admin/users', authMiddleware, authController.getAllUsers);
 
 module.exports = router;

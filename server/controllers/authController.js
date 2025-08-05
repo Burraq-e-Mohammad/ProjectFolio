@@ -730,3 +730,29 @@ exports.validateAdminToken = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Get all users (admin only)
+exports.getAllUsers = async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const users = await User.find({})
+      .select('firstName lastName email username role isVerified verificationStatus createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json({ 
+      users,
+      total: users.length,
+      verified: users.filter(u => u.isVerified).length,
+      unverified: users.filter(u => !u.isVerified).length,
+      admins: users.filter(u => u.role === 'admin').length
+    });
+  } catch (err) {
+    console.error('Get all users error:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};

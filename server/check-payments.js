@@ -7,6 +7,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/projectfoli
 
 const ManualPayment = require('./models/ManualPayment');
 const User = require('./models/User');
+const Project = require('./models/Project'); // Add missing Project model import
 
 async function checkPayments() {
   try {
