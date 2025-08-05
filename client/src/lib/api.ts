@@ -57,6 +57,7 @@ export const authAPI = {
   getProfile: () => api.get('/api/auth/profile'),
   updateProfile: (data: any) => api.put('/api/auth/profile', data),
   updatePassword: (data: any) => api.put('/api/auth/password', data),
+  getAllUsers: () => api.get('/api/auth/admin/users'),
 };
 
 // Projects API
