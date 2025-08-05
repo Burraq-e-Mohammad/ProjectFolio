@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { projectsAPI } from "@/lib/api";
+import { projectsAPI, categoriesAPI } from "@/lib/api";
 import ProjectCard from "./ProjectCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,8 @@ const ProjectsGrid = () => {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        setTestData(data);
+        const response = await projectsAPI.getAll();
+        setTestData(response.data);
       } catch (error) {
         console.error('Failed to load projects:', error);
       }
@@ -40,9 +39,8 @@ const ProjectsGrid = () => {
     const loadCategories = async () => {
       try {
         setCategoriesLoading(true);
-        const response = await fetch('/api/categories');
-        const data = await response.json();
-        setCategories(data);
+        const response = await categoriesAPI.getAll();
+        setCategories(response.data);
       } catch (error) {
         console.error('Failed to load categories:', error);
       } finally {
