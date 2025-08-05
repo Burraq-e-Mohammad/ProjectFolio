@@ -179,16 +179,9 @@ const Dashboard = () => {
   const { data: allPayments, isLoading: paymentsLoading, error: paymentsError } = useQuery({
     queryKey: ['admin-payments'],
     queryFn: async () => {
-      // Use relative URL since Vite proxy forwards /api to backend
-      const response = await fetch('/api/manual-payments/admin/payments', {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      return data;
+      // Use the configured API client
+      const response = await manualPaymentsAPI.getAdminPayments();
+      return response.data;
     },
     enabled: isAdminLoggedIn,
   });
@@ -197,16 +190,9 @@ const Dashboard = () => {
   const { data: allProjects, isLoading: projectsLoading, error } = useQuery({
     queryKey: ['adminProjects'],
     queryFn: async () => {
-      // Use direct fetch with admin token instead of regular API
-      const response = await fetch('/api/projects/pending', {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      return data;
+      // Use the configured API client
+      const response = await projectsAPI.getPendingProjects();
+      return response.data;
     },
     enabled: !!adminToken,
   });
@@ -217,14 +203,9 @@ const Dashboard = () => {
   const { data: allUsers, error: usersError, isLoading: usersLoading } = useQuery({
     queryKey: ['adminUsers'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/admin/users', {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
+      // Use the configured API client
+      const response = await authAPI.getAllUsers();
+      return response.data;
     },
     enabled: !!adminToken,
   });
@@ -265,16 +246,9 @@ const Dashboard = () => {
   });
 
   const verifyPaymentMutation = useMutation({
-         mutationFn: async (paymentId: string) => {
-       const response = await fetch(`/api/manual-payments/${paymentId}/verify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ verificationNotes: 'Payment verified by admin' })
-      });
-      return response.json();
+    mutationFn: async (paymentId: string) => {
+      const response = await manualPaymentsAPI.verifyPayment(paymentId, {});
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
@@ -293,22 +267,15 @@ const Dashboard = () => {
   });
 
   const paySellerMutation = useMutation({
-         mutationFn: async (paymentId: string) => {
-       const response = await fetch(`/api/manual-payments/${paymentId}/pay-seller`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          paymentMethod: 'Easypaisa',
-          accountNumber: '',
-          phoneNumber: '',
-          accountHolderName: '',
-          paymentNotes: 'Payment sent to seller'
-        })
+    mutationFn: async (paymentId: string) => {
+      const response = await manualPaymentsAPI.paySeller(paymentId, {
+        paymentMethod: 'Easypaisa',
+        accountNumber: '',
+        phoneNumber: '',
+        accountHolderName: '',
+        paymentNotes: 'Payment sent to seller'
       });
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
@@ -328,22 +295,8 @@ const Dashboard = () => {
 
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const response = await fetch(`/api/manual-payments/${paymentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      
-      // Check if the response is not successful
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete payment');
-      }
-      
-      return data;
+      const response = await manualPaymentsAPI.deletePayment(paymentId);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
@@ -363,14 +316,8 @@ const Dashboard = () => {
 
   const approveProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const response = await fetch(`/api/projects/${projectId}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      return response.json();
+      const response = await projectsAPI.approveProject(projectId);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminProjects'] });
@@ -390,15 +337,8 @@ const Dashboard = () => {
 
   const rejectProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const response = await fetch(`/api/projects/${projectId}/reject`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ rejectionReason: 'Project rejected by admin' })
-      });
-      return response.json();
+      const response = await projectsAPI.rejectProject(projectId);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminProjects'] });
