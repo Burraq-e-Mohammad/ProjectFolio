@@ -2,7 +2,6 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSection from "@/components/home/HeroSection";
 import ProjectsGrid from "@/components/home/ProjectsGrid";
-import TestBackendConnection from "@/components/TestBackendConnection";
 
 const Home = () => {
   return (
@@ -10,9 +9,6 @@ const Home = () => {
       <Header />
       <main className="flex-1">
         <HeroSection />
-        <div className="container mx-auto px-4 py-8">
-          <TestBackendConnection />
-        </div>
         <ProjectsGrid />
       </main>
       <Footer />
