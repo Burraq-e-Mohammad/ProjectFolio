@@ -19,17 +19,19 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // Prefer admin token for admin endpoints; fall back to user token
-    const isAdminEndpoint = (
-      config.url?.includes('/api/auth/admin') ||
-      config.url?.includes('/api/projects/pending') ||
-      config.url?.includes('/api/projects/') ||
-      config.url?.includes('/api/manual-payments/admin') ||
-      config.method?.toLowerCase() === 'put' && config.url?.includes('/api/manual-payments/') ||
-      config.method?.toLowerCase() === 'post' && config.url?.includes('/api/manual-payments/')
-    );
+    const url = config.url || '';
+    const method = (config.method || 'get').toLowerCase();
+    const isProjectDetail = /\/api\/projects\/[^\/]+$/.test(url);
+    const isProjectAdminAction = /\/api\/projects\/[^\/]+\/(approve|reject)$/.test(url) || url.includes('/api/projects/pending') || url.includes('/api/projects/admin');
+    const isManualPaymentsAdmin = url.includes('/api/manual-payments/admin') || /\/api\/manual-payments\/[^\/]+\/(verify|pay-seller)$/.test(url);
+    const isAuthAdmin = url.includes('/api/auth/admin');
+    const isMyProjects = url.includes('/api/projects/my-projects');
+
+    const preferAdmin = (isAuthAdmin || isProjectAdminAction || isManualPaymentsAdmin || isProjectDetail) && !isMyProjects;
+
     const adminToken = localStorage.getItem('admin_token');
     const userToken = localStorage.getItem('token');
-    const tokenToUse = isAdminEndpoint && adminToken ? adminToken : (userToken || adminToken || undefined);
+    const tokenToUse = preferAdmin && adminToken ? adminToken : (userToken || adminToken || undefined);
     if (tokenToUse) {
       config.headers.Authorization = `Bearer ${tokenToUse}`;
     }

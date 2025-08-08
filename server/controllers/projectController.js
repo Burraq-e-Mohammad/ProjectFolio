@@ -223,7 +223,14 @@ exports.getProjectById = async (req, res) => {
     
     // Check if user is admin (allow admins to see all projects)
     const isAdmin = req.user && req.user.role === 'admin';
-    const isOwner = req.user && project.seller && project.seller._id.toString() === req.user.userId;
+    // Be robust whether seller is populated (object with _id) or an ObjectId/string
+    let isOwner = false;
+    if (req.user && project.seller) {
+      const sellerId = (typeof project.seller === 'object' && project.seller._id)
+        ? project.seller._id.toString()
+        : project.seller.toString?.() || String(project.seller);
+      isOwner = sellerId === req.user.userId;
+    }
     
     console.log('User info:', { 
       userId: req.user?.userId, 
@@ -237,20 +244,27 @@ exports.getProjectById = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Increment views only for non-admin visitors
+    // Increment views only for non-admin visitors using direct update to avoid validation issues
+    let projectToReturn = project;
     if (!isAdmin) {
-      console.log('Incrementing views in getProjectById');
-      console.log('Current views:', project.views);
-      project.views = (project.views || 0) + 1;
-      console.log('New views:', project.views);
-      await project.save();
-      console.log('Views saved in getProjectById');
+      console.log('Incrementing views in getProjectById via $inc');
+      const updated = await Project.findByIdAndUpdate(
+        project._id,
+        { $inc: { views: 1 } },
+        { new: true, runValidators: false }
+      );
+      if (updated) {
+        projectToReturn = updated;
+      }
     } else {
-      console.log('Not incrementing views - user is admin or owner');
+      console.log('Not incrementing views - user is admin');
     }
-    
+
+    // Ensure seller populated on returned doc
+    await projectToReturn.populate('seller', 'firstName lastName email username');
+
     // Return in the format expected by frontend
-    res.json({ data: project });
+    res.json({ data: projectToReturn });
   } catch (err) {
     console.error('Error in getProjectById:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
