@@ -283,7 +283,7 @@ const EditPaymentOrder = () => {
                   <div>
                     <Label className="text-sm font-medium">Amount</Label>
                     <p className="text-lg font-semibold text-green-600">
-                      ${payment.amount?.toFixed(2)}
+                      RS {payment.amount?.toFixed(2)}
                     </p>
                   </div>
                   <div>
