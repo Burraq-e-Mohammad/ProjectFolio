@@ -61,7 +61,8 @@ const ProjectsGrid = () => {
     if (!project || !project.title || !project.description) return false;
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || project.category === selectedCategory;
+    const matchesCategory = selectedCategory === "all" || 
+                          project.category?.toLowerCase().replace(/\s+/g, '-') === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -122,7 +123,7 @@ const ProjectsGrid = () => {
                  <SelectItem value="loading" disabled>Loading...</SelectItem>
                ) : (
                  categories?.categories?.map?.((category: string, index: number) => (
-                   <SelectItem key={index} value={category}>
+                   <SelectItem key={index} value={category.toLowerCase().replace(/\s+/g, '-')}>
                      {category}
                    </SelectItem>
                  ))
