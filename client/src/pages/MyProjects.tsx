@@ -82,11 +82,28 @@ const MyProjects = () => {
       window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || "Failed to update project";
+      const debugInfo = error.response?.data?.debug;
+      
+      let description = errorMessage;
+      
+      // Add helpful suggestions for common errors
+      if (errorMessage.includes("different user account")) {
+        description = "You're logged in with a different account than the one that created this project. Please log out and log in with the correct account.";
+      } else if (error.response?.status === 403) {
+        description = "You don't have permission to edit this project. Make sure you're logged in with the account that created it.";
+      }
+      
       toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to update project",
+        title: "Update Failed",
+        description: description,
         variant: "destructive",
       });
+      
+      // Log debug info for developers
+      if (debugInfo) {
+        console.log('Update project error details:', debugInfo);
+      }
     },
   });
 
@@ -302,7 +319,7 @@ const MyProjects = () => {
                           View
                         </Button>
                       )}
-                      {(project.status === 'available' || project.status === 'pending' || project.status === 'sold') && (
+                      {(project.status === 'available' || project.status === 'pending') && (
                         <Dialog onOpenChange={(open) => {
                           if (open) {
                             handleEdit(project);
@@ -450,7 +467,7 @@ const MyProjects = () => {
                           </DialogContent>
                         </Dialog>
                       )}
-                      {(project.status === 'available' || project.status === 'pending' || project.status === 'sold') && (
+                      {(project.status === 'available' || project.status === 'pending') && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">

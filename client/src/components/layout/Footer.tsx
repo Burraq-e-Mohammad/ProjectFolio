@@ -72,7 +72,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-          <p>&copy; 2024 ProjectFolio. All rights reserved. Built with ❤️ for developers.</p>
+          <p>&copy; 2025 ProjectFolio. All rights reserved. Built with ❤️ for developers.</p>
         </div>
       </div>
     </footer>

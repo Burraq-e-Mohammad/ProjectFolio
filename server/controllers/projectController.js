@@ -244,20 +244,16 @@ exports.getProjectById = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Increment views only for non-admin visitors using direct update to avoid validation issues
+    // Increment views for all visitors using atomic $inc to avoid validation issues
     let projectToReturn = project;
-    if (!isAdmin) {
-      console.log('Incrementing views in getProjectById via $inc');
-      const updated = await Project.findByIdAndUpdate(
-        project._id,
-        { $inc: { views: 1 } },
-        { new: true, runValidators: false }
-      );
-      if (updated) {
-        projectToReturn = updated;
-      }
-    } else {
-      console.log('Not incrementing views - user is admin');
+    console.log('Incrementing views in getProjectById via $inc');
+    const updated = await Project.findByIdAndUpdate(
+      project._id,
+      { $inc: { views: 1 } },
+      { new: true, runValidators: false }
+    );
+    if (updated) {
+      projectToReturn = updated;
     }
 
     // Ensure seller populated on returned doc
@@ -287,6 +283,13 @@ exports.updateProject = async (req, res) => {
     console.log('Request user:', req.user);
     console.log('Project ID:', req.params.id);
     console.log('User ID from token:', req.user.userId);
+    console.log('Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.userId) {
+      console.log('User not authenticated');
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     
     const { title, description, category, price, whatsIncluded, whatsappNumber } = req.body;
     
@@ -315,6 +318,8 @@ exports.updateProject = async (req, res) => {
     const project = await Project.findById(req.params.id);
     
     console.log('Found project:', project);
+    console.log('Project seller:', project.seller);
+    console.log('Current user ID:', req.user.userId);
     
     if (!project) {
       console.log('Project not found');
@@ -323,13 +328,114 @@ exports.updateProject = async (req, res) => {
     
     console.log('Project seller ID:', project.seller);
     console.log('Project seller ID type:', typeof project.seller);
+    console.log('Project seller ID toString():', project.seller.toString());
+    console.log('User ID:', req.user.userId);
     console.log('User ID type:', typeof req.user.userId);
+    console.log('Full req.user object:', req.user);
     console.log('Comparison result:', project.seller.toString() !== req.user.userId);
+    console.log('Are they equal?', project.seller.toString() === req.user.userId);
     
     // Check if user owns this project
-    if (project.seller.toString() !== req.user.userId) {
-      console.log('Permission denied - user does not own this project');
-      return res.status(403).json({ message: 'You can only edit your own projects' });
+    const sellerId = project.seller.toString();
+    const userId = req.user.userId.toString();
+    
+    console.log('=== PERMISSION CHECK ===');
+    console.log('Seller ID from project:', sellerId);
+    console.log('User ID from token:', userId);
+    console.log('Are they equal?', sellerId === userId);
+    
+         // TEMPORARY: Allow admin users to edit any project
+     if (req.user.role === 'admin') {
+       console.log('Admin user - bypassing ownership check');
+     } else if (sellerId !== userId) {
+       console.log('=== DEBUGGING OWNERSHIP ISSUE ===');
+       console.log('Seller ID from project:', sellerId);
+       console.log('User ID from token:', userId);
+       console.log('User role:', req.user.role);
+       console.log('User email:', req.user.email);
+       
+       // TEMPORARY: Allow editing if user email matches project owner email
+       try {
+         const User = require('../models/User');
+         const currentUser = await User.findById(req.user.userId);
+         const projectOwner = await User.findById(project.seller);
+         
+         if (currentUser && projectOwner && currentUser.email === projectOwner.email) {
+           console.log('Email match found - allowing edit');
+         } else {
+           console.log('Permission denied - user does not own this project');
+           console.log('Comparison failed - IDs do not match');
+           
+           console.log('Current user found:', currentUser ? 'Yes' : 'No');
+           console.log('Project owner found:', projectOwner ? 'Yes' : 'No');
+           
+           if (currentUser) {
+             console.log('Current user email:', currentUser.email);
+           }
+           if (projectOwner) {
+             console.log('Project owner email:', projectOwner.email);
+           }
+           
+           return res.status(403).json({ 
+             message: `You can only edit your own projects. This project was created by a different user account.`,
+             debug: {
+               sellerId,
+               userId,
+               projectId: req.params.id,
+               projectTitle: project.title,
+               currentUserEmail: req.user.email || 'Not available',
+               userRole: req.user.role,
+               suggestion: 'Make sure you are logged in with the account that created this project'
+             }
+           });
+         }
+               } catch (error) {
+          console.log('Error checking user details:', error.message);
+          return res.status(403).json({ 
+            message: `You can only edit your own projects. This project was created by a different user account.`,
+            debug: {
+              sellerId,
+              userId,
+              projectId: req.params.id,
+              projectTitle: project.title,
+              currentUserEmail: req.user.email || 'Not available',
+              userRole: req.user.role,
+              suggestion: 'Make sure you are logged in with the account that created this project'
+            }
+          });
+        }
+      
+      // Additional debugging: Check if this is a valid user
+      try {
+        const User = require('../models/User');
+        const currentUser = await User.findById(req.user.userId);
+        const projectOwner = await User.findById(project.seller);
+        
+        console.log('Current user found:', currentUser ? 'Yes' : 'No');
+        console.log('Project owner found:', projectOwner ? 'Yes' : 'No');
+        
+        if (currentUser) {
+          console.log('Current user email:', currentUser.email);
+        }
+        if (projectOwner) {
+          console.log('Project owner email:', projectOwner.email);
+        }
+      } catch (error) {
+        console.log('Error checking user details:', error.message);
+      }
+      
+             return res.status(403).json({ 
+         message: `You can only edit your own projects. This project was created by a different user account.`,
+         debug: {
+           sellerId,
+           userId,
+           projectId: req.params.id,
+           projectTitle: project.title,
+           currentUserEmail: req.user.email || 'Not available',
+           userRole: req.user.role,
+           suggestion: 'Make sure you are logged in with the account that created this project'
+         }
+       });
     }
     
     console.log('Permission granted - updating project');
@@ -606,6 +712,44 @@ exports.rejectProject = async (req, res) => {
 
     res.json({ message: 'Project rejected successfully', project });
   } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Add this endpoint to check current user
+exports.checkCurrentUser = async (req, res) => {
+  try {
+    console.log('=== CHECKING CURRENT USER ===');
+    console.log('Request user:', req.user);
+    
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    const User = require('../models/User');
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found in database' });
+    }
+    
+    res.json({
+      message: 'Current user info',
+      user: {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isVerified: user.isVerified
+      },
+      tokenInfo: {
+        userId: req.user.userId,
+        role: req.user.role
+      }
+    });
+  } catch (err) {
+    console.error('Error checking current user:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

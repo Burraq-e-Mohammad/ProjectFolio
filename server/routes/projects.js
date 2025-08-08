@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { 
-  createProject, getProjects, getProjectById, getMyProjects, updateProject, deleteProject, getAllProjectsForAdmin, getPendingProjects, approveProject, rejectProject, incrementProjectViews 
+  createProject, getProjects, getProjectById, getMyProjects, updateProject, deleteProject, getAllProjectsForAdmin, getPendingProjects, approveProject, rejectProject, incrementProjectViews, checkCurrentUser
 } = require('../controllers/projectController');
 const { auth, optionalAuth } = require('../middleware/authMiddleware');
 const multer = require('multer');
@@ -27,6 +27,7 @@ router.get('/', getProjects);
 
 // Protected routes (only logged-in users can post, edit, delete)
 router.get('/my-projects', auth, getMyProjects);
+router.get('/check-user', auth, checkCurrentUser);
 router.post('/', auth, upload.array('images', 5), createProject);
 router.put('/:id', auth, upload.array('images', 5), updateProject);
 router.delete('/:id', auth, deleteProject);
