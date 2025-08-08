@@ -1,8 +1,10 @@
 const nodemailer = require('nodemailer');
+const ContactMessage = require('../models/ContactMessage');
+const { sendContactMessageNotification } = require('../utils/emailService');
 
-// Create transporter for sending emails
+// Fix Nodemailer usage
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
@@ -76,6 +78,86 @@ const sendContactEmail = async (req, res) => {
   }
 };
 
+const sendContactMessage = async (req, res) => {
+  try {
+    const { firstName, lastName, email, subject, message } = req.body;
+    if (!firstName || !lastName || !email || !subject || !message) {
+      return res.status(400).json({ message: 'All fields are required.' });
+    }
+    const newMessage = new ContactMessage({ firstName, lastName, email, subject, message });
+    await newMessage.save();
+    
+    // Send email notification to admin
+    try {
+      await sendContactMessageNotification(newMessage);
+    } catch (emailError) {
+      console.error('Failed to send contact message notification:', emailError);
+      // Don't fail the request if email fails
+    }
+    
+    res.status(200).json({ message: 'Message sent successfully.' });
+  } catch (err) {
+    console.error('sendContactMessage error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+const getAllContactMessages = async (req, res) => {
+  try {
+    const messages = await ContactMessage.find().sort({ createdAt: -1 });
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+const getContact = (req, res) => {
+  res.send("Contact page");
+};
+
+const adminReplyToContactMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { subject, replyMessage } = req.body;
+    if (!subject || !replyMessage) {
+      return res.status(400).json({ message: 'Subject and reply message are required.' });
+    }
+    // Find the original contact message
+    const contactMsg = await ContactMessage.findById(messageId);
+    if (!contactMsg) {
+      return res.status(404).json({ message: 'Contact message not found.' });
+    }
+    // Send reply email to the user
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: contactMsg.email,
+      subject: `Re: ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Reply from ProjectFolio Admin</h2>
+          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Dear ${contactMsg.firstName} ${contactMsg.lastName},</strong></p>
+            <p>${replyMessage.replace(/\n/g, '<br>')}</p>
+          </div>
+          <p style="color: #666; font-size: 12px;">
+            This is a reply to your message: <em>${contactMsg.subject}</em>
+          </p>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Reply sent to user successfully.' });
+  } catch (err) {
+    console.error('adminReplyToContactMessage error:', err);
+    res.status(500).json({ message: 'Failed to send reply.', error: err.message });
+  }
+};
+
 module.exports = {
-  sendContactEmail
+  sendContactEmail,
+  sendContactMessage,
+  getAllContactMessages,
+  getContact,
+  adminReplyToContactMessage
 }; 

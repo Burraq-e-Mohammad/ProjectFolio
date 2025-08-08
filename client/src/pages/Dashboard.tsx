@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { manualPaymentsAPI, authAPI, projectsAPI } from "@/lib/api";
+import { manualPaymentsAPI, authAPI, projectsAPI, contactAPI } from "@/lib/api";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   DollarSign, 
@@ -31,7 +33,8 @@ import {
   Mail,
   Calendar,
   UserCheck,
-  UserX
+  UserX,
+  MessageSquare
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
@@ -48,6 +51,23 @@ const Dashboard = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const [searchProjectId, setSearchProjectId] = useState("");
+  const [searchedProject, setSearchedProject] = useState<any>(null);
+  const [searchError, setSearchError] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Custom rejection message states
+  const [rejectingProjectId, setRejectingProjectId] = useState<string | null>(null);
+  const [rejectingPaymentId, setRejectingPaymentId] = useState<string | null>(null);
+  const [customRejectionMessage, setCustomRejectionMessage] = useState("");
+
+  // Contact messages states
+  const [replyingToMessage, setReplyingToMessage] = useState<string | null>(null);
+  const [replySubject, setReplySubject] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
+  // User search in User Management
+  const [userSearch, setUserSearch] = useState("");
 
   // Check if admin is logged in - only after loading is complete
   // Also ensure the current user from AuthContext is actually an admin
@@ -211,6 +231,21 @@ const Dashboard = () => {
   });
 
   const users = allUsers?.users || [];
+  const filteredUsers = users.filter((u: any) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [
+      u.firstName,
+      u.lastName,
+      u.email,
+      u.username,
+      ...(u.whatsappNumbers || [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(q);
+  });
 
   const adminLoginMutation = useMutation({
     mutationFn: (credentials: { email: string; password: string }) => 
@@ -336,12 +371,14 @@ const Dashboard = () => {
   });
 
   const rejectProjectMutation = useMutation({
-    mutationFn: async (projectId: string) => {
-      const response = await projectsAPI.rejectProject(projectId);
+    mutationFn: async ({ projectId, rejectionMessage }: { projectId: string; rejectionMessage?: string }) => {
+      const response = await projectsAPI.rejectProject(projectId, rejectionMessage);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminProjects'] });
+      setRejectingProjectId(null);
+      setCustomRejectionMessage("");
       toast({
         title: "Project Rejected",
         description: "Project has been rejected",
@@ -351,6 +388,62 @@ const Dashboard = () => {
       toast({
         title: "Error",
         description: error.response?.data?.message || "Failed to reject project",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Contact messages query
+  const { data: contactMessages, isLoading: contactMessagesLoading } = useQuery({
+    queryKey: ['adminContactMessages'],
+    queryFn: contactAPI.getAllMessages,
+    enabled: isAdminLoggedIn,
+  });
+
+  // Reply to message mutation
+  const replyToMessageMutation = useMutation({
+    mutationFn: async ({ messageId, subject, replyMessage }: { messageId: string; subject: string; replyMessage: string }) => {
+      const response = await contactAPI.replyToMessage(messageId, { subject, replyMessage });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminContactMessages'] });
+      setReplyingToMessage(null);
+      setReplySubject("");
+      setReplyMessage("");
+      toast({
+        title: "Reply Sent",
+        description: "Reply has been sent successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to send reply",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Payment rejection mutation
+  const rejectPaymentMutation = useMutation({
+    mutationFn: async ({ paymentId, rejectionMessage }: { paymentId: string; rejectionMessage?: string }) => {
+      const response = await manualPaymentsAPI.rejectPayment(paymentId, rejectionMessage);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      setRejectingPaymentId(null);
+      setCustomRejectionMessage("");
+      toast({
+        title: "Payment Rejected",
+        description: "Payment has been rejected",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to reject payment",
         variant: "destructive",
       });
     },
@@ -398,7 +491,57 @@ const Dashboard = () => {
   };
 
   const handleRejectProject = (projectId: string) => {
-    rejectProjectMutation.mutate(projectId);
+    setRejectingProjectId(projectId);
+    setCustomRejectionMessage("");
+  };
+
+  const handleConfirmRejectProject = () => {
+    if (rejectingProjectId) {
+      rejectProjectMutation.mutate({ 
+        projectId: rejectingProjectId, 
+        rejectionMessage: customRejectionMessage || undefined 
+      });
+    }
+  };
+
+  const handleCancelRejectProject = () => {
+    setRejectingProjectId(null);
+    setCustomRejectionMessage("");
+  };
+
+  const handleRejectPayment = (paymentId: string) => {
+    setRejectingPaymentId(paymentId);
+    setCustomRejectionMessage("");
+  };
+
+  const handleConfirmRejectPayment = () => {
+    if (rejectingPaymentId) {
+      rejectPaymentMutation.mutate({ 
+        paymentId: rejectingPaymentId, 
+        rejectionMessage: customRejectionMessage || undefined 
+      });
+    }
+  };
+
+  const handleCancelRejectPayment = () => {
+    setRejectingPaymentId(null);
+    setCustomRejectionMessage("");
+  };
+
+  const handleProjectSearch = async () => {
+    setSearchError("");
+    setSearchedProject(null);
+    if (!searchProjectId.trim()) return;
+    setSearchLoading(true);
+    try {
+      const res = await projectsAPI.getById(searchProjectId.trim());
+      // API returns { data: project }
+      setSearchedProject(res.data?.data || null);
+    } catch (err: any) {
+      setSearchError(err?.response?.data?.message || "Project not found");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   // Calculate payment statistics
@@ -662,16 +805,74 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {isAdminLoggedIn && (
+          <div className="mb-4 flex justify-end">
+            <Button asChild variant="outline">
+              <Link to="/admin/contact-messages">
+                <Mail className="mr-2 h-4 w-4" />
+                View Contact Messages
+              </Link>
+            </Button>
+          </div>
+        )}
+
                  <div className="container py-8">
            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-             <TabsList className="grid w-full grid-cols-4">
+             <TabsList className="grid w-full grid-cols-5">
                <TabsTrigger value="projects">Project Approval</TabsTrigger>
                <TabsTrigger value="payments">Payment Management</TabsTrigger>
                <TabsTrigger value="users">User Management</TabsTrigger>
                <TabsTrigger value="overview">Overview</TabsTrigger>
+               <TabsTrigger value="contact-messages">Contact Messages</TabsTrigger>
              </TabsList>
 
                          <TabsContent value="projects" className="space-y-6">
+               {/* Project Search by ID */}
+               <Card className="mb-4">
+                 <CardHeader>
+                   <CardTitle>Search Project by ID</CardTitle>
+                   <CardDescription>Enter a project ID to quickly view its details.</CardDescription>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="flex items-center space-x-2 mb-2">
+                     <Input
+                       placeholder="Enter Project ID"
+                       value={searchProjectId}
+                       onChange={e => setSearchProjectId(e.target.value)}
+                       className="max-w-xs"
+                     />
+                     <Button onClick={handleProjectSearch} disabled={searchLoading || !searchProjectId.trim()}>
+                       {searchLoading ? <Loader2 className="animate-spin h-4 w-4" /> : "Search"}
+                     </Button>
+                   </div>
+                   {searchError && <p className="text-xs text-red-600 mb-2">{searchError}</p>}
+                   {searchedProject && (
+                     <div className="p-4 border rounded-lg flex items-center space-x-4">
+                       {searchedProject.images && searchedProject.images.length > 0 ? (
+                         <img
+                           src={searchedProject.images[0]}
+                           alt={searchedProject.title}
+                           className="w-16 h-16 object-cover rounded-lg border"
+                         />
+                       ) : (
+                         <div className="w-16 h-16 bg-gray-200 flex items-center justify-center rounded-lg border">
+                           <span className="text-gray-400 text-xs">No Image</span>
+                         </div>
+                       )}
+                       <div>
+                         <h3 className="font-medium">{searchedProject.title}</h3>
+                         <p className="text-sm text-muted-foreground">
+                           {searchedProject.seller?.firstName} {searchedProject.seller?.lastName} • {searchedProject.category}
+                         </p>
+                         <p className="text-xs text-muted-foreground">{searchedProject.seller?.email}</p>
+                         <p className="text-xs text-muted-foreground">RS {searchedProject.price} • {searchedProject.status}</p>
+                         <p className="text-xs text-muted-foreground">📱 WhatsApp: {searchedProject.whatsappNumber || 'Not provided'}</p>
+                         <p className="text-xs mt-1 text-gray-700 line-clamp-2 max-w-xs">{searchedProject.description}</p>
+                       </div>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
                <Card>
                  <CardHeader>
                    <CardTitle className="flex items-center gap-2">
@@ -701,17 +902,35 @@ const Dashboard = () => {
                        {pendingProjects.map((project: any) => (
                          <div key={project._id} className="flex items-center justify-between p-4 border rounded-lg">
                            <div className="flex items-center space-x-4">
-                             <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                               <CheckSquare className="h-6 w-6 text-muted-foreground" />
-                             </div>
+                             {/* Project Image */}
+                             {project.images && project.images.length > 0 ? (
+                               <img
+                                 src={project.images[0]}
+                                 alt={project.title}
+                                 className="w-16 h-16 object-cover rounded-lg border"
+                               />
+                             ) : (
+                               <div className="w-16 h-16 bg-gray-200 flex items-center justify-center rounded-lg border">
+                                 <span className="text-gray-400 text-xs">No Image</span>
+                               </div>
+                             )}
                              <div>
                                <h3 className="font-medium">{project.title}</h3>
                                <p className="text-sm text-muted-foreground">
-                                 {project.seller?.name || 'Unknown'} • {project.category}
+                                 {project.seller?.firstName} {project.seller?.lastName} • {project.category}
+                               </p>
+                               {/* Seller Email */}
+                               <p className="text-xs text-muted-foreground">
+                                 {project.seller?.email}
                                </p>
                                <p className="text-xs text-muted-foreground">
                                  RS {project.price} • {project.status}
                                </p>
+                               <p className="text-xs text-muted-foreground">
+                                 📱 WhatsApp: {project.whatsappNumber || 'Not provided'}
+                               </p>
+                               {/* Project Description */}
+                               <p className="text-xs mt-1 text-gray-700 line-clamp-2 max-w-xs">{project.description}</p>
                                <Badge variant={
                                  project.status === 'pending' ? 'secondary' :
                                  project.status === 'available' ? 'default' :
@@ -764,7 +983,7 @@ const Dashboard = () => {
 
             <TabsContent value="users" className="space-y-6">
               <Card>
-                <CardHeader>
+                  <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
                     User Management
@@ -774,6 +993,18 @@ const Dashboard = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    {/* User search */}
+                    <div className="mb-4 flex items-center gap-2">
+                      <Input
+                        placeholder="Search users by name, email, username, or WhatsApp"
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        className="max-w-md"
+                      />
+                      {userSearch && (
+                        <Button variant="outline" size="sm" onClick={() => setUserSearch("")}>Clear</Button>
+                      )}
+                    </div>
                   {usersError ? (
                     <div className="text-center py-8">
                       <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -787,11 +1018,11 @@ const Dashboard = () => {
                       <h3 className="text-lg font-semibold mb-2">Loading Users</h3>
                       <p className="text-muted-foreground">Please wait while we fetch user data...</p>
                     </div>
-                  ) : users.length === 0 ? (
+                  ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-8">
                       <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No users found</h3>
-                      <p className="text-muted-foreground">No users have registered yet</p>
+                      <p className="text-muted-foreground">Try adjusting your search</p>
                     </div>
                   ) : (
                     <>
@@ -837,30 +1068,197 @@ const Dashboard = () => {
 
                       {/* Users List */}
                       <div className="space-y-4">
-                        {users.map((user: any) => (
+                        {filteredUsers.map((user: any) => (
                           <div key={user._id} className="flex items-center justify-between p-4 border rounded-lg">
                             <div className="flex items-center space-x-4">
                               <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
                                 <Users className="h-6 w-6 text-muted-foreground" />
                               </div>
-                              <div>
-                                <h3 className="font-medium">
-                                  {user.firstName} {user.lastName}
-                                  {user.role === 'admin' && (
-                                    <Badge variant="outline" className="ml-2 bg-purple-50 text-purple-700 border-purple-200">
-                                      Admin
-                                    </Badge>
-                                  )}
-                                </h3>
-                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-medium">
+                                    {user.firstName} {user.lastName}
+                                    {user.role === 'admin' && (
+                                      <Badge variant="outline" className="ml-2 bg-purple-50 text-purple-700 border-purple-200">
+                                        Admin
+                                      </Badge>
+                                    )}
+                                  </h3>
+                                </div>
+                                <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
                                   <Mail className="h-4 w-4" />
                                   <span>{user.email}</span>
                                 </div>
-                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
                                   <Calendar className="h-4 w-4" />
                                   <span>Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
                                 </div>
-                                <div className="flex items-center space-x-2 mt-1">
+                                
+                                {/* WhatsApp Numbers */}
+                                {user.whatsappNumbers && user.whatsappNumbers.length > 0 && (
+                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
+                                    <span className="text-green-600">📱</span>
+                                    <span>WhatsApp: {user.whatsappNumbers.join(', ')}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Project Statistics */}
+                                {user.projectStats && user.projectStats.total > 0 && (
+                                  <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-2">
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                      Available: {user.projectStats.available}
+                                    </span>
+                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                                      Pending: {user.projectStats.pending}
+                                    </span>
+                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
+                                      Sold: {user.projectStats.sold}
+                                    </span>
+                                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded">
+                                      Rejected: {user.projectStats.rejected}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {/* Recent Project IDs */}
+                                {user.recentProjectIds && user.recentProjectIds.length > 0 && (
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground">Recent Projects:</p>
+                                    
+                                    {/* Available Projects */}
+                                    {user.projectsByStatus?.available && user.projectsByStatus.available.length > 0 && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-medium text-blue-600">Available Projects:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                          {user.projectsByStatus.available.map((project: any) => (
+                                            <div key={project.id} className="flex items-center gap-1">
+                                              <Link 
+                                                to={`/project/${project.id}`}
+                                                className="text-xs text-blue-600 hover:underline"
+                                              >
+                                                {project.id.slice(-6)} - {project.title.slice(0, 20)}...
+                                              </Link>
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs bg-green-100 text-green-700 border-green-200"
+                                              >
+                                                {project.status}
+                                              </Badge>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Pending Projects */}
+                                    {user.projectsByStatus?.pending && user.projectsByStatus.pending.length > 0 && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-medium text-yellow-600">Pending Projects:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                          {user.projectsByStatus.pending.map((project: any) => (
+                                            <div key={project.id} className="flex items-center gap-1">
+                                              <Link 
+                                                to={`/project/${project.id}`}
+                                                className="text-xs text-blue-600 hover:underline"
+                                              >
+                                                {project.id.slice(-6)} - {project.title.slice(0, 20)}...
+                                              </Link>
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200"
+                                              >
+                                                {project.status}
+                                              </Badge>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Sold Projects */}
+                                    {user.projectsByStatus?.sold && user.projectsByStatus.sold.length > 0 && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-medium text-green-600">Sold Projects:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                          {user.projectsByStatus.sold.map((project: any) => (
+                                            <div key={project.id} className="flex items-center gap-1">
+                                              <Link 
+                                                to={`/project/${project.id}`}
+                                                className="text-xs text-blue-600 hover:underline"
+                                              >
+                                                {project.id.slice(-6)} - {project.title.slice(0, 20)}...
+                                              </Link>
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs bg-blue-100 text-blue-700 border-blue-200"
+                                              >
+                                                {project.status}
+                                              </Badge>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Rejected Projects */}
+                                    {user.projectsByStatus?.rejected && user.projectsByStatus.rejected.length > 0 && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-medium text-red-600">Rejected Projects:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                          {user.projectsByStatus.rejected.map((project: any) => (
+                                            <div key={project.id} className="flex items-center gap-1">
+                                              <Link 
+                                                to={`/project/${project.id}`}
+                                                className="text-xs text-blue-600 hover:underline"
+                                              >
+                                                {project.id.slice(-6)} - {project.title.slice(0, 20)}...
+                                              </Link>
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs bg-red-100 text-red-700 border-red-200"
+                                              >
+                                                {project.status}
+                                              </Badge>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Fallback: Show recent projects if no status-specific projects */}
+                                    {(!user.projectsByStatus || 
+                                      (user.projectsByStatus.available.length === 0 && 
+                                       user.projectsByStatus.pending.length === 0 && 
+                                       user.projectsByStatus.sold.length === 0 && 
+                                       user.projectsByStatus.rejected.length === 0)) && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {user.recentProjectIds.map((project: any) => (
+                                          <div key={project.id} className="flex items-center gap-1">
+                                            <Link 
+                                              to={`/project/${project.id}`}
+                                              className="text-xs text-blue-600 hover:underline"
+                                            >
+                                              {project.id.slice(-6)} - {project.title.slice(0, 20)}...
+                                            </Link>
+                                            <Badge 
+                                              variant="outline" 
+                                              className={`text-xs ${
+                                                project.status === 'available' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                project.status === 'pending' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                                project.status === 'sold' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                'bg-red-100 text-red-700 border-red-200'
+                                              }`}
+                                            >
+                                              {project.status}
+                                            </Badge>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center space-x-2 mt-2">
                                   <Badge variant={
                                     user.isVerified ? 'default' : 'secondary'
                                   }>
@@ -887,6 +1285,11 @@ const Dashboard = () => {
                             <div className="text-right text-sm text-muted-foreground">
                               <div>Username: {user.username || 'N/A'}</div>
                               <div>Role: {user.role}</div>
+                              {user.projectStats && user.projectStats.total > 0 && (
+                                <div className="mt-1">
+                                  <div className="text-xs font-medium">Total Projects: {user.projectStats.total}</div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1033,6 +1436,114 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
 
+            <TabsContent value="contact-messages" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Contact Messages
+                  </CardTitle>
+                  <CardDescription>
+                    Review and reply to user contact messages
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {contactMessagesLoading ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Loading Messages</h3>
+                      <p className="text-muted-foreground">Please wait while we fetch contact messages...</p>
+                    </div>
+                  ) : !contactMessages?.data?.messages || contactMessages.data.messages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No messages</h3>
+                      <p className="text-muted-foreground">No contact messages found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {contactMessages.data.messages.map((msg: any) => (
+                        <div key={msg._id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <h3 className="font-medium">{msg.firstName} {msg.lastName}</h3>
+                              <p className="text-sm text-muted-foreground">{msg.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(msg.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{msg.subject}</Badge>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-3">{msg.message}</p>
+                          
+                          {replyingToMessage === msg._id ? (
+                            <div className="space-y-3 border-t pt-3">
+                              <Input
+                                placeholder="Reply subject"
+                                value={replySubject}
+                                onChange={(e) => setReplySubject(e.target.value)}
+                                className="max-w-md"
+                              />
+                              <Textarea
+                                placeholder="Type your reply..."
+                                value={replyMessage}
+                                onChange={(e) => setReplyMessage(e.target.value)}
+                                rows={3}
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => replyToMessageMutation.mutate({
+                                    messageId: msg._id,
+                                    subject: replySubject,
+                                    replyMessage: replyMessage
+                                  })}
+                                  disabled={replyToMessageMutation.isPending || !replySubject || !replyMessage}
+                                  size="sm"
+                                >
+                                  {replyToMessageMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    "Send Reply"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setReplyingToMessage(null);
+                                    setReplySubject("");
+                                    setReplyMessage("");
+                                  }}
+                                  disabled={replyToMessageMutation.isPending}
+                                  size="sm"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReplyingToMessage(msg._id);
+                                setReplySubject(msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`);
+                                setReplyMessage("");
+                              }}
+                            >
+                              Reply
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="payments" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1075,8 +1586,11 @@ const Dashboard = () => {
                               </div>
                               <div>
                                 <h3 className="font-medium">Payment #{payment._id.slice(-6)}</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  Project ID: {typeof payment.projectId === 'object' ? payment.projectId._id : payment.projectId}
+                                </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {payment.buyer?.name || 'Unknown'} → {payment.seller?.name || 'Unknown'}
+                                  {(payment.paymentDetails?.senderName || payment.buyer?.name || 'Unknown')} 192 ProjectFolio
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   RS {payment.amount} • {payment.paymentMethod}
@@ -1119,16 +1633,28 @@ const Dashboard = () => {
                                 </Button>
                               )}
                               {payment.status !== 'completed' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeletePayment(payment._id)}
-                                  disabled={deletePaymentMutation.isPending}
-                                  className="text-red-600 border-red-200 hover:bg-red-50"
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Delete
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRejectPayment(payment._id)}
+                                    disabled={rejectPaymentMutation.isPending}
+                                    className="text-red-600 border-red-200 hover:bg-red-50"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeletePayment(payment._id)}
+                                    disabled={deletePaymentMutation.isPending}
+                                    className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -1198,6 +1724,92 @@ const Dashboard = () => {
         </div>
       </main>
       <Footer />
+
+      {/* Rejection Dialog */}
+      <Dialog open={!!rejectingProjectId} onOpenChange={(open) => !open && handleCancelRejectProject()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Project</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this project. This message will be sent to the project owner.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="rejection-message">Rejection Reason (Optional)</Label>
+              <Textarea
+                id="rejection-message"
+                placeholder="Enter a custom rejection message or leave blank for default message..."
+                value={customRejectionMessage}
+                onChange={(e) => setCustomRejectionMessage(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelRejectProject}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmRejectProject}
+              disabled={rejectProjectMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {rejectProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                "Reject Project"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Rejection Dialog */}
+      <Dialog open={!!rejectingPaymentId} onOpenChange={(open) => !open && handleCancelRejectPayment()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Payment</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this payment. This message will be sent to the payment sender.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="payment-rejection-message">Rejection Reason (Optional)</Label>
+              <Textarea
+                id="payment-rejection-message"
+                placeholder="Enter a custom rejection message or leave blank for default message..."
+                value={customRejectionMessage}
+                onChange={(e) => setCustomRejectionMessage(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelRejectPayment}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmRejectPayment}
+              disabled={rejectPaymentMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {rejectPaymentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                "Reject Payment"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

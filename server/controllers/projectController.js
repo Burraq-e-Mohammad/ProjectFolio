@@ -2,11 +2,11 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { cloudinary } = require('../utils/cloudinary');
-const { sendProjectApprovalNotification, sendProjectApprovedNotification } = require('../utils/emailService');
+const { sendProjectApprovalNotification, sendProjectApprovedNotification, sendProjectRejectedNotification } = require('../utils/emailService');
 
 exports.createProject = async (req, res) => {
   try {
-    const { title, description, category, price, tags, demoUrl, images } = req.body;
+    const { title, description, category, price, tags, demoUrl, images, whatsIncluded, whatsappNumber } = req.body;
     
     // Check user verification status
     const user = await User.findById(req.user.userId);
@@ -22,8 +22,8 @@ exports.createProject = async (req, res) => {
     }
     
     // Validate required fields
-    if (!title || !description || !category || !price) {
-      return res.status(400).json({ message: 'Title, description, category, and price are required' });
+    if (!title || !description || !category || !price || !whatsappNumber) {
+      return res.status(400).json({ message: 'Title, description, category, price, and WhatsApp number are required' });
     }
     
     // Validate price
@@ -146,7 +146,9 @@ exports.createProject = async (req, res) => {
       demoUrl: demoUrl || '',
       images: imagePaths,
       seller: req.user.userId,
-      status: 'pending' // Projects start as pending for admin approval
+      status: 'pending', // Projects start as pending for admin approval
+      whatsIncluded: Array.isArray(whatsIncluded) ? whatsIncluded : [],
+      whatsappNumber: whatsappNumber.trim()
     });
     
     await project.save();
@@ -215,20 +217,42 @@ exports.getProjects = async (req, res) => {
 
 exports.getProjectById = async (req, res) => {
   try {
+    console.log('Getting project by ID:', req.params.id);
     const project = await Project.findById(req.params.id).populate('seller', 'firstName lastName email username');
     if (!project) return res.status(404).json({ message: 'Project not found' });
     
     // Check if user is admin (allow admins to see all projects)
     const isAdmin = req.user && req.user.role === 'admin';
+    const isOwner = req.user && project.seller && project.seller._id.toString() === req.user.userId;
     
-    // For non-admin users, only show approved projects
+    console.log('User info:', { 
+      userId: req.user?.userId, 
+      isAdmin, 
+      isOwner, 
+      projectOwner: project.seller?._id 
+    });
+    
+    // Only admins can view non-available projects. Non-admins can only view 'available'. Owners are NOT treated specially.
     if (!isAdmin && project.status !== 'available') {
       return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Increment views only for non-admin visitors
+    if (!isAdmin) {
+      console.log('Incrementing views in getProjectById');
+      console.log('Current views:', project.views);
+      project.views = (project.views || 0) + 1;
+      console.log('New views:', project.views);
+      await project.save();
+      console.log('Views saved in getProjectById');
+    } else {
+      console.log('Not incrementing views - user is admin or owner');
     }
     
     // Return in the format expected by frontend
     res.json({ data: project });
   } catch (err) {
+    console.error('Error in getProjectById:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -250,18 +274,19 @@ exports.updateProject = async (req, res) => {
     console.log('Project ID:', req.params.id);
     console.log('User ID from token:', req.user.userId);
     
-    const { title, description, category, price } = req.body;
+    const { title, description, category, price, whatsIncluded, whatsappNumber } = req.body;
     
     // Validate required fields
-    if (!title || !description || !category || !price) {
-      console.log('Missing required fields:', { title, description, category, price });
+    if (!title || !description || !category || !price || !whatsappNumber) {
+      console.log('Missing required fields:', { title, description, category, price, whatsappNumber });
       return res.status(400).json({ 
         message: 'Missing required fields', 
         missing: {
           title: !title,
           description: !description,
           category: !category,
-          price: !price
+          price: !price,
+          whatsappNumber: !whatsappNumber
         }
       });
     }
@@ -300,6 +325,10 @@ exports.updateProject = async (req, res) => {
     project.description = description;
     project.category = category;
     project.price = price;
+    project.whatsappNumber = whatsappNumber.trim();
+    if (Array.isArray(whatsIncluded)) {
+      project.whatsIncluded = whatsIncluded;
+    }
     
     // Handle images update
     if (req.body.images && Array.isArray(req.body.images)) {
@@ -490,6 +519,7 @@ exports.getPendingProjects = async (req, res) => {
     }
 
     const projects = await Project.find({ status: 'pending' })
+      .select('title description images category price status whatsappNumber seller')
       .populate('seller', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
@@ -542,7 +572,7 @@ exports.rejectProject = async (req, res) => {
       return res.status(403).json({ message: 'Admin access required' });
     }
 
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id).populate('seller', 'firstName lastName email');
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -550,8 +580,39 @@ exports.rejectProject = async (req, res) => {
     project.status = 'rejected';
     await project.save();
 
+    // Get custom rejection message from request body, or use default
+    const customMessage = req.body.rejectionMessage || null;
+
+    // Send rejection email to seller
+    try {
+      await sendProjectRejectedNotification(project, project.seller, customMessage);
+    } catch (emailError) {
+      // Don't fail the request if email fails
+    }
+
     res.json({ message: 'Project rejected successfully', project });
   } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Add this endpoint:
+exports.incrementProjectViews = async (req, res) => {
+  try {
+    console.log('Incrementing views for project:', req.params.id);
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      console.log('Project not found');
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    console.log('Current views:', project.views);
+    project.views = (project.views || 0) + 1;
+    console.log('New views:', project.views);
+    await project.save();
+    console.log('Views saved successfully');
+    res.json({ views: project.views });
+  } catch (err) {
+    console.error('Error incrementing views:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

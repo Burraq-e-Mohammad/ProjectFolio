@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { manualPaymentsAPI } from "@/lib/api";
+import axios from "axios";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,24 @@ const PaymentOrders = () => {
     deletePaymentMutation.mutate(paymentId);
   };
 
+  const handleRejectPayment = async (paymentId: string) => {
+    try {
+      await manualPaymentsAPI.rejectPayment(paymentId);
+      queryClient.invalidateQueries({ queryKey: ['userPayments'] });
+      toast({
+        title: "Payment Rejected",
+        description: "The payment has been rejected and the user has been notified.",
+        variant: "destructive"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || 'Failed to reject payment',
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
@@ -89,6 +108,8 @@ const PaymentOrders = () => {
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'disputed':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-600" />;
       case 'refunded':
         return <XCircle className="h-4 w-4 text-gray-500" />;
       default:
@@ -104,7 +125,8 @@ const PaymentOrders = () => {
       delivery_confirmed: { variant: 'default' as const, text: 'Delivery Confirmed' },
       completed: { variant: 'default' as const, text: 'Completed' },
       disputed: { variant: 'destructive' as const, text: 'Disputed' },
-      refunded: { variant: 'secondary' as const, text: 'Refunded' }
+      refunded: { variant: 'secondary' as const, text: 'Refunded' },
+      rejected: { variant: 'destructive' as const, text: 'Rejected' }
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
@@ -137,6 +159,8 @@ const PaymentOrders = () => {
         return 'This payment is under dispute. Please contact support.';
       case 'refunded':
         return 'Payment has been refunded.';
+      case 'rejected':
+        return 'Your payment was rejected by admin. Please review and re-upload correct proof or contact support.';
       default:
         return 'Payment status unknown.';
     }
@@ -445,6 +469,12 @@ const PaymentOrders = () => {
                             {getStatusDescription(payment.status)}
                           </p>
                         </div>
+                      )}
+
+                      {user?.role === 'admin' && payment.status === 'payment_uploaded' && (
+                        <Button variant="destructive" size="sm" onClick={() => handleRejectPayment(payment._id)}>
+                          Reject
+                        </Button>
                       )}
                     </CardContent>
                   </Card>

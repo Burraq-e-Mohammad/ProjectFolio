@@ -36,7 +36,7 @@ const manualPaymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'payment_uploaded', 'payment_verified', 'delivery_confirmed', 'completed', 'disputed', 'refunded'],
+    enum: ['pending', 'payment_uploaded', 'payment_verified', 'delivery_confirmed', 'completed', 'disputed', 'refunded', 'rejected'],
     default: 'pending'
   },
   paymentMethod: {

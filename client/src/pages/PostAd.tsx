@@ -13,10 +13,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Upload, X, Eye, DollarSign, Tag, Code, Image as ImageIcon, Mail, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, X, Eye, DollarSign, Code, Image as ImageIcon, Mail, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImageUpload from "@/components/upload/ImageUpload";
 import { projectsAPI } from "@/lib/api";
+
+const categories = [
+  "Web Application",
+  "Mobile App",
+  "Desktop Software",
+  "AI/ML",
+  "Business Software",
+  "Analytics",
+  "Finance",
+  "E-commerce",
+  "Game Development",
+  "DevOps Tools",
+  "Scripts",
+  "Hardware",
+  "Extension",
+  "Other"
+];
 
 const PostAd = () => {
   const { user } = useAuth();
@@ -28,21 +45,51 @@ const PostAd = () => {
   const editMode = location.state?.editMode || false;
   const projectData = location.state?.projectData || null;
   
-  const [tags, setTags] = useState<string[]>(projectData?.tags || []);
-  const [newTag, setNewTag] = useState("");
   const [images, setImages] = useState<string[]>(projectData?.images || []);
   const [resendingVerification, setResendingVerification] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [qualityChecked, setQualityChecked] = useState(false);
 
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
-      setNewTag("");
-    }
-  };
+  // Add at the top, after useState for projectData:
+  const [title, setTitle] = useState(projectData?.title || "");
+  const [description, setDescription] = useState(projectData?.description || "");
+  const [selectedCategory, setSelectedCategory] = useState(
+    projectData?.category && categories.includes(projectData.category)
+      ? projectData.category
+      : ""
+  );
+  const [price, setPrice] = useState(projectData?.price || "");
+  const [whatsappNumber, setWhatsappNumber] = useState(projectData?.whatsappNumber || "");
 
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+  // Validation for required fields
+  const isFormValid = () => {
+    return (
+      !!title.trim() &&
+      !!description.trim() &&
+      !!selectedCategory &&
+      !!price &&
+      images.length > 0 &&
+      !!whatsappNumber.trim() &&
+      termsChecked &&
+      qualityChecked
+    );
   };
+  
+  const DEFAULT_INCLUDED = [
+    "Complete Source Code",
+    "Documentation",
+    "Installation Guide",
+    "API Documentation",
+    "Database Schema",
+    "Unit Tests",
+    "Video Tutorial",
+    "6 Months Support"
+  ];
+  
+  const [whatsIncludedItems, setWhatsIncludedItems] = useState<string[]>(projectData?.whatsIncluded?.filter((item: string) => !DEFAULT_INCLUDED.includes(item)) || []);
+  const [checkedIncluded, setCheckedIncluded] = useState<string[]>(projectData?.whatsIncluded || []);
+  const [newIncluded, setNewIncluded] = useState("");
 
   const handleImageUpload = (imageUrl: string) => {
     setImages(prev => [...prev, imageUrl]);
@@ -77,6 +124,7 @@ const PostAd = () => {
         description: "Your project has been updated successfully.",
       });
       navigate('/my-projects');
+      window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
       toast({
@@ -99,6 +147,7 @@ const PostAd = () => {
         duration: 8000, // Show for 8 seconds instead of default 5 seconds
       });
       navigate('/my-projects');
+      window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
       const errorMsg = error.response?.data?.message || 'Failed to create project';
@@ -110,8 +159,27 @@ const PostAd = () => {
     },
   });
 
+  const addIncludedItem = () => {
+    if (newIncluded.trim() && !whatsIncludedItems.includes(newIncluded.trim())) {
+      setWhatsIncludedItems([...whatsIncludedItems, newIncluded.trim()]);
+      setCheckedIncluded([...checkedIncluded, newIncluded.trim()]);
+      setNewIncluded("");
+    }
+  };
+  const removeIncludedItem = (item: string) => {
+    setWhatsIncludedItems(whatsIncludedItems.filter(i => i !== item));
+    setCheckedIncluded(checkedIncluded.filter(i => i !== item));
+  };
+  const toggleIncluded = (item: string) => {
+    setCheckedIncluded(checkedIncluded.includes(item)
+      ? checkedIncluded.filter(i => i !== item)
+      : [...checkedIncluded, item]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isFormValid()) return;
+    setIsSubmitting(true);
     
     // Check if user is verified
     if (!user?.isVerified) {
@@ -125,13 +193,13 @@ const PostAd = () => {
     
     const formData = new FormData(e.target as HTMLFormElement);
     const submitData = {
-      title: formData.get('title') as string,
-      description: formData.get('description') as string,
-      category: formData.get('category') as string,
-      price: parseFloat(formData.get('price') as string),
-      demoUrl: formData.get('demo-url') as string,
-      tags: tags,
-      images: images
+      title: title,
+      description: description,
+      category: selectedCategory,
+      price: parseFloat(price),
+      images: images,
+      whatsIncluded: checkedIncluded,
+      whatsappNumber: whatsappNumber
     };
 
     if (editMode && projectData) {
@@ -139,30 +207,24 @@ const PostAd = () => {
       updateProjectMutation.mutate({
         id: projectData._id,
         projectData: submitData
+      }, {
+        onSettled: () => setIsSubmitting(false)
       });
     } else {
       // Create new project
-      createProjectMutation.mutate(submitData);
+      createProjectMutation.mutate(submitData, {
+        onSettled: () => setIsSubmitting(false)
+      });
     }
   };
-
-  const categories = [
-    "Web Application",
-    "Mobile App",
-    "Desktop Software",
-    "AI/ML",
-    "Business Software",
-    "Analytics",
-    "Finance",
-    "E-commerce",
-    "Game Development",
-    "DevOps Tools"
-  ];
 
   const technologies = [
     "React", "Vue", "Angular", "Node.js", "Python", "Django", "Laravel", "Flutter",
     "React Native", "Java", "C#", ".NET", "PHP", "Ruby", "Go", "Rust"
   ];
+
+  // When using categories, default to [] if undefined:
+  const categoriesSafe = Array.isArray(categories) ? categories : [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -271,7 +333,8 @@ const PostAd = () => {
                       name="title"
                       placeholder="e.g., Complete E-commerce Dashboard with Analytics"
                       className="mt-1"
-                      defaultValue={projectData?.title || ''}
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
                       required
                     />
                   </div>
@@ -284,7 +347,8 @@ const PostAd = () => {
                       placeholder="Describe your project in detail..."
                       className="mt-1"
                       rows={6}
-                      defaultValue={projectData?.description || ''}
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
                       required
                     />
                   </div>
@@ -292,13 +356,13 @@ const PostAd = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <Label htmlFor="category">Category *</Label>
-                      <Select name="category" required defaultValue={projectData?.category || ''}>
+                      <Select name="category" required value={selectedCategory} onValueChange={setSelectedCategory}>
                         <SelectTrigger className="mt-1">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category} value={category.toLowerCase().replace(/\s+/g, '-')}>
+                          {categoriesSafe.map((category) => (
+                            <SelectItem key={category} value={category}>
                               {category}
                             </SelectItem>
                           ))}
@@ -312,11 +376,31 @@ const PostAd = () => {
                           id="price" 
                           name="price"
                           type="number" 
-                          placeholder="299"
-                          defaultValue={projectData?.price || ''}
+                          placeholder="e.g., 50000"
+                          className="no-spinner"
+                          value={price}
+                          onChange={e => setPrice(e.target.value)}
+                          min={0}
+                          step={1}
                           required
                         />
                       </div>
+                    
+                    <div>
+                      <Label htmlFor="whatsappNumber">WhatsApp Number *</Label>
+                      <Input 
+                        id="whatsappNumber" 
+                        name="whatsapp"
+                        type="tel" 
+                        placeholder="e.g., +923001234567"
+                        value={whatsappNumber}
+                        onChange={(e) => setWhatsappNumber(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Include country code (e.g., +92 for Pakistan)
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -343,46 +427,63 @@ const PostAd = () => {
                     />
                   </div>
                   
-                  <div>
-                    <Label htmlFor="demo-url">Demo URL (Optional)</Label>
-                    <Input 
-                      id="demo-url" 
-                      name="demo-url"
-                      placeholder="https://your-demo-site.com"
-                      className="mt-1"
-                      defaultValue={projectData?.demoUrl || ''}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Tags</Label>
-                    <div className="mt-2">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="flex items-center space-x-1">
-                            <span>{tag}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeTag(tag)}
-                              className="hover:bg-muted rounded-full p-0.5"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex space-x-2">
-                        <Input
-                          value={newTag}
-                          onChange={(e) => setNewTag(e.target.value)}
-                          placeholder="Add a tag"
-                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                        />
-                        <Button type="button" variant="outline" onClick={addTag}>
-                          <Tag className="h-4 w-4 mr-2" />
-                          Add
-                        </Button>
-                      </div>
+                  {/* Remove Demo URL and Tags UI sections */}
+                </CardContent>
+              </Card>
+
+              {/* What's Included */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5" />
+                    <span>What's Included <span className="text-xs text-muted-foreground">(Optional)</span></span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-2">
+                    {/* Default Items */}
+                    <div className="flex flex-col gap-2">
+                      {DEFAULT_INCLUDED.map(item => (
+                        <div key={item} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`included-default-${item}`}
+                            checked={checkedIncluded.includes(item)}
+                            onCheckedChange={() => toggleIncluded(item)}
+                          />
+                          <Label htmlFor={`included-default-${item}`}>{item}</Label>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Custom Add */}
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        value={newIncluded}
+                        onChange={e => setNewIncluded(e.target.value)}
+                        placeholder="Add an item (e.g., Source Code, Docs)"
+                        onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addIncludedItem())}
+                      />
+                      <Button type="button" variant="outline" onClick={addIncludedItem}>
+                        Add
+                      </Button>
+                    </div>
+                    {/* Custom Items */}
+                    <div className="flex flex-col gap-2 mt-2">
+                      {whatsIncludedItems.length === 0 && (
+                        <span className="text-sm text-muted-foreground">No custom items added yet.</span>
+                      )}
+                      {whatsIncludedItems.map(item => (
+                        <div key={item} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`included-${item}`}
+                            checked={checkedIncluded.includes(item)}
+                            onCheckedChange={() => toggleIncluded(item)}
+                          />
+                          <Label htmlFor={`included-${item}`}>{item}</Label>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => removeIncludedItem(item)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </CardContent>
@@ -393,14 +494,14 @@ const PostAd = () => {
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div className="flex items-start space-x-2">
-                      <Checkbox id="terms" required />
+                      <Checkbox id="terms" required checked={termsChecked} onCheckedChange={val => setTermsChecked(val === true)} />
                       <Label htmlFor="terms" className="text-sm">
                         I agree to the Terms of Service and confirm that I own all rights to this project
                       </Label>
                     </div>
                     
                     <div className="flex items-start space-x-2">
-                      <Checkbox id="quality" required />
+                      <Checkbox id="quality" required checked={qualityChecked} onCheckedChange={val => setQualityChecked(val === true)} />
                       <Label htmlFor="quality" className="text-sm">
                                                  I confirm that this project meets ProjectFolio's quality standards
                       </Label>
@@ -418,9 +519,9 @@ const PostAd = () => {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={!user?.isVerified || updateProjectMutation.isPending}
+                      disabled={!isFormValid() || isSubmitting || updateProjectMutation.isPending}
                     >
-                      {updateProjectMutation.isPending ? (
+                      {isSubmitting || updateProjectMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           {editMode ? "Updating..." : "Submitting..."}

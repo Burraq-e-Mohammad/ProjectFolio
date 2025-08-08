@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Star, Eye, Download, Heart, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import axios from "axios";
 
 interface ProjectCardProps {
   _id: string;
@@ -77,6 +78,14 @@ const ProjectCard = ({
     setImageError(true);
   };
 
+  const handleViewDetails = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      await axios.post(`/api/projects/${_id}/views`);
+    } catch {}
+    window.location.href = `/project/${_id}`;
+  };
+
   return (
     <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
       {featured && (
@@ -144,20 +153,9 @@ const ProjectCard = ({
           {description}
         </p>
         
-        <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
-          <div className="flex items-center space-x-1">
-            <Star className="h-4 w-4 fill-warning text-warning" />
-            <span className="font-medium">{rating}</span>
-            <span>({reviews})</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Eye className="h-4 w-4" />
-            <span>{views}</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Download className="h-4 w-4" />
-            <span>{downloads}</span>
-          </div>
+        <div className="flex items-center space-x-1">
+          <Eye className="h-4 w-4" />
+          <span>{views ?? 0}</span>
         </div>
         
         <div className="flex items-center justify-between">
@@ -168,10 +166,12 @@ const ProjectCard = ({
       </CardContent>
       
       <CardFooter className="p-4 pt-0">
-        <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors" asChild>
-          <Link to={`/project/${_id}`}>
-            View Details
-          </Link>
+        <Button 
+          variant="outline" 
+          className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+          onClick={handleViewDetails}
+        >
+          View Details
         </Button>
       </CardFooter>
     </Card>

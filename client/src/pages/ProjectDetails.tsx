@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { projectsAPI, cartAPI } from "@/lib/api";
+import axios from "axios";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const ProjectDetails = () => {
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [views, setViews] = useState<number>(0);
 
   // Fetch project data
   const { data: response, isLoading, error } = useQuery({
@@ -55,6 +57,13 @@ const ProjectDetails = () => {
     queryFn: () => projectsAPI.getById(id),
     enabled: !!id,
   });
+
+  // Update views when project data is loaded
+  useEffect(() => {
+    if (response?.data?.data) {
+      setViews(response.data.data.views || 0);
+    }
+  }, [response?.data?.data]);
 
   // Fetch cart data to check if project is already in cart
   const { data: cartResponse } = useQuery({
@@ -78,6 +87,7 @@ const ProjectDetails = () => {
         description: "Your project has been successfully deleted.",
       });
       navigate("/");
+      window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
       toast({
@@ -308,14 +318,6 @@ const ProjectDetails = () => {
                     <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
                     <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-1">
-                        <User className="h-4 w-4" />
-                        <span>
-                          {project.seller?.firstName && project.seller?.lastName 
-                            ? `${project.seller.firstName} ${project.seller.lastName}` 
-                            : project.seller?.email || 'Unknown Seller'}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1">
                         <Calendar className="h-4 w-4" />
                         <span>
                           {project.createdAt 
@@ -361,12 +363,8 @@ const ProjectDetails = () => {
                 <div className="flex items-center space-x-4 mb-4">
                   <Badge variant="secondary">{project.category}</Badge>
                   <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                    <Star className="h-4 w-4 fill-warning text-warning" />
-                    <span>4.5 (12 reviews)</span>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                     <Eye className="h-4 w-4" />
-                    <span>1.2k views</span>
+                    <span>{views} views</span>
                   </div>
                 </div>
 
@@ -466,32 +464,25 @@ const ProjectDetails = () => {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-12">
-            <Card>
-              <CardHeader>
-                <CardTitle>What's Included</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    "Complete Source Code",
-                    "Documentation",
-                    "Installation Guide",
-                    "API Documentation",
-                    "Database Schema",
-                    "Unit Tests",
-                    "Video Tutorial",
-                    "6 Months Support"
-                  ].map((item) => (
-                    <div key={item} className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-primary rounded-full" />
-                      <span className="text-sm">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {project.whatsIncluded && project.whatsIncluded.length > 0 && (
+            <div className="mt-12">
+              <Card>
+                <CardHeader>
+                  <CardTitle>What's Included</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {project.whatsIncluded.map((item: string) => (
+                      <div key={item} className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-primary rounded-full" />
+                        <span className="text-sm">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
       <Footer />

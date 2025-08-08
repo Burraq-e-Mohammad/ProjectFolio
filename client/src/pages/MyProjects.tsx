@@ -59,7 +59,8 @@ const MyProjects = () => {
     description: '',
     category: '',
     price: '',
-    images: [] as string[]
+    images: [] as string[],
+    whatsappNumber: ''
   });
 
   const { data: projects, isLoading, error } = useQuery({
@@ -78,6 +79,7 @@ const MyProjects = () => {
         title: "Project Updated",
         description: "Your project has been updated successfully",
       });
+      window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
       toast({
@@ -96,6 +98,7 @@ const MyProjects = () => {
         title: "Project Deleted",
         description: "Your project has been deleted successfully",
       });
+      window.location.reload(); // Refresh the page to show changes
     },
     onError: (error: any) => {
       toast({
@@ -113,7 +116,8 @@ const MyProjects = () => {
       description: project.description,
       category: project.category,
       price: project.price.toString(),
-      images: project.images || []
+      images: project.images || [],
+      whatsappNumber: project.whatsappNumber || ''
     });
   };
 
@@ -151,7 +155,8 @@ const MyProjects = () => {
         description: editForm.description,
         category: editForm.category,
         price: parseFloat(editForm.price),
-        images: editForm.images
+        images: editForm.images,
+        whatsappNumber: editForm.whatsappNumber
       }
     });
   };
@@ -286,189 +291,200 @@ const MyProjects = () => {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => {
-                          // Show project details in a simple alert for now
-                          alert(`Project: ${project.title}\nDescription: ${project.description}\nPrice: RS ${project.price}\nCategory: ${project.category}\nStatus: ${project.status}`);
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      
-                      <Dialog onOpenChange={(open) => {
-                        if (open) {
-                          handleEdit(project);
-                        }
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Edit Project</DialogTitle>
-                            <DialogDescription>
-                              Make changes to your project here. Click save when you're done.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div>
-                              <Label htmlFor="title">Title</Label>
-                              <Input
-                                id="title"
-                                value={editForm.title}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="description">Description</Label>
-                              <Textarea
-                                id="description"
-                                value={editForm.description}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                rows={4}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                      {(project.status === 'available') && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => navigate(`/project/${project._id}`)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      )}
+                      {(project.status === 'available' || project.status === 'pending' || project.status === 'sold') && (
+                        <Dialog onOpenChange={(open) => {
+                          if (open) {
+                            handleEdit(project);
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Edit Project</DialogTitle>
+                              <DialogDescription>
+                                Make changes to your project here. Click save when you're done.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
                               <div>
-                                <Label htmlFor="category">Category</Label>
-                                <Select 
-                                  value={editForm.category} 
-                                  onValueChange={(value) => setEditForm(prev => ({ ...prev, category: value }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select category" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {categories.map((category) => (
-                                      <SelectItem key={category} value={category.toLowerCase().replace(/\s+/g, '-')}>
-                                        {category}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div>
-                                <Label htmlFor="price">Price (PKR)</Label>
+                                <Label htmlFor="title">Title</Label>
                                 <Input
-                                  id="price"
-                                  type="number"
-                                  value={editForm.price}
-                                  onChange={(e) => setEditForm(prev => ({ ...prev, price: e.target.value }))}
+                                  id="title"
+                                  value={editForm.title}
+                                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
                                 />
                               </div>
-                            </div>
-                            
-                            {/* Images Section */}
-                            <div>
-                              <Label>Project Images</Label>
-                              <div className="mt-2 space-y-4">
-                                {/* Current Images */}
-                                {editForm.images.length > 0 && (
-                                  <div>
-                                    <p className="text-sm text-muted-foreground mb-2">Current Images:</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                      {editForm.images.map((image, index) => (
-                                        <div key={index} className="relative group aspect-video">
-                                          <img
-                                            src={image}
-                                            alt={`Project image ${index + 1}`}
-                                            className="w-full h-full object-contain rounded-md bg-muted"
-                                            onError={(e) => {
-                                              e.currentTarget.src = '/placeholder-project.jpg';
-                                            }}
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="sm"
-                                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => removeImage(index)}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Add New Images */}
+                              <div>
+                                <Label htmlFor="description">Description</Label>
+                                <Textarea
+                                  id="description"
+                                  value={editForm.description}
+                                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                  rows={4}
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <p className="text-sm text-muted-foreground mb-2">Add New Images:</p>
-                                  <ImageUpload
-                                    onUploadSuccess={handleImageUpload}
-                                    maxFiles={5 - editForm.images.length}
+                                  <Label htmlFor="category">Category</Label>
+                                  <Select 
+                                    value={editForm.category} 
+                                    onValueChange={(value) => setEditForm(prev => ({ ...prev, category: value }))}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {categories.map((category) => (
+                                        <SelectItem key={category} value={category.toLowerCase().replace(/\s+/g, '-')}>
+                                          {category}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="price">Price (PKR)</Label>
+                                  <Input
+                                    id="price"
+                                    type="number"
+                                    value={editForm.price}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, price: e.target.value }))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="whatsapp">WhatsApp Number</Label>
+                                  <Input
+                                    id="whatsapp"
+                                    type="tel"
+                                    placeholder="e.g., +923001234567"
+                                    value={editForm.whatsappNumber}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, whatsappNumber: e.target.value }))}
                                   />
                                 </div>
                               </div>
+                              
+                              {/* Images Section */}
+                              <div>
+                                <Label>Project Images</Label>
+                                <div className="mt-2 space-y-4">
+                                  {/* Current Images */}
+                                  {editForm.images.length > 0 && (
+                                    <div>
+                                      <p className="text-sm text-muted-foreground mb-2">Current Images:</p>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        {editForm.images.map((image, index) => (
+                                          <div key={index} className="relative group aspect-video">
+                                            <img
+                                              src={image}
+                                              alt={`Project image ${index + 1}`}
+                                              className="w-full h-full object-contain rounded-md bg-muted"
+                                              onError={(e) => {
+                                                e.currentTarget.src = '/placeholder-project.jpg';
+                                              }}
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="destructive"
+                                              size="sm"
+                                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              onClick={() => removeImage(index)}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Add New Images */}
+                                  <div>
+                                    <p className="text-sm text-muted-foreground mb-2">Add New Images:</p>
+                                    <ImageUpload
+                                      onUploadSuccess={handleImageUpload}
+                                      maxFiles={5 - editForm.images.length}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <DialogFooter className="flex gap-2">
-                            <Button 
-                              variant="outline"
-                              onClick={() => handleEditInPostAd(editingProject)}
-                            >
-                              Edit in Post Ad Page
+                            <DialogFooter className="flex gap-2">
+                              <Button 
+                                variant="outline"
+                                onClick={() => handleEditInPostAd(editingProject)}
+                              >
+                                Edit in Post Ad Page
+                              </Button>
+                              <Button 
+                                onClick={handleUpdate}
+                                disabled={updateProjectMutation.isPending}
+                              >
+                                {updateProjectMutation.isPending ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  'Save Changes'
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                      {(project.status === 'available' || project.status === 'pending' || project.status === 'sold') && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              onClick={handleUpdate}
-                              disabled={updateProjectMutation.isPending}
-                            >
-                              {updateProjectMutation.isPending ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Saving...
-                                </>
-                              ) : (
-                                'Save Changes'
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete your project
-                              "{project.title}" and remove it from the marketplace.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(project._id)}
-                              className="bg-red-600 hover:bg-red-700"
-                              disabled={deleteProjectMutation.isPending}
-                            >
-                              {deleteProjectMutation.isPending ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Deleting...
-                                </>
-                              ) : (
-                                'Delete Project'
-                              )}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete your project
+                                "{project.title}" and remove it from the marketplace.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(project._id)}
+                                className="bg-red-600 hover:bg-red-700"
+                                disabled={deleteProjectMutation.isPending}
+                              >
+                                {deleteProjectMutation.isPending ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  'Delete Project'
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

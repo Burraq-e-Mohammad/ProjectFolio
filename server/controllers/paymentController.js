@@ -312,11 +312,16 @@ const refundPayment = async (req, res) => {
   }
 };
 
+const rejectPayment = (req, res) => {
+  res.status(501).json({ message: 'Reject payment not implemented yet.' });
+};
+
 module.exports = {
   createEscrowPayment,
   confirmPayment,
   releasePayment,
   getEscrowAccount,
   getUserEscrowAccounts,
-  refundPayment
+  refundPayment,
+  rejectPayment
 }; 

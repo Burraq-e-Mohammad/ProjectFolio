@@ -21,7 +21,11 @@ const categories = [
   'Cybersecurity',
   'Cloud Computing',
   'API Development',
-  'Database Design'
+  'Database Design',
+  'Scripts',
+  'Hardware',
+  'Extension',
+  'Other'
 ];
 
 // GET /api/categories

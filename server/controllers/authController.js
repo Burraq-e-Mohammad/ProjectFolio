@@ -135,7 +135,7 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(404).json({ message: 'Account not found. Please sign up first.' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
@@ -740,16 +740,90 @@ exports.getAllUsers = async (req, res) => {
       return res.status(403).json({ message: 'Admin access required' });
     }
 
+    // Get all users with basic info
     const users = await User.find({})
       .select('firstName lastName email username role isVerified verificationStatus createdAt')
       .sort({ createdAt: -1 });
 
+    // Get projects for each user to extract WhatsApp numbers and project info
+    const Project = require('../models/Project');
+    const usersWithProjects = await Promise.all(
+      users.map(async (user) => {
+        try {
+          // Get all projects for this user
+          const projects = await Project.find({ seller: user._id })
+            .select('_id title status whatsappNumber createdAt')
+            .sort({ createdAt: -1 });
+
+          // Extract unique WhatsApp numbers from projects
+          const whatsappNumbers = [...new Set(projects.map(p => p.whatsappNumber).filter(Boolean))];
+          
+          // Group projects by status
+          const projectStats = {
+            available: projects.filter(p => p.status === 'available').length,
+            pending: projects.filter(p => p.status === 'pending').length,
+            sold: projects.filter(p => p.status === 'sold').length,
+            rejected: projects.filter(p => p.status === 'rejected').length,
+            total: projects.length
+          };
+
+          // Get recent project IDs (last 10 to ensure we get projects from all statuses)
+          const recentProjectIds = projects.slice(0, 10).map(p => ({
+            id: p._id.toString(), // Ensure it's a string
+            title: p.title,
+            status: p.status
+          }));
+
+          // Also get projects by status for better organization
+          const projectsByStatus = {
+            available: projects.filter(p => p.status === 'available').slice(0, 5).map(p => ({
+              id: p._id.toString(),
+              title: p.title,
+              status: p.status
+            })),
+            pending: projects.filter(p => p.status === 'pending').slice(0, 5).map(p => ({
+              id: p._id.toString(),
+              title: p.title,
+              status: p.status
+            })),
+            sold: projects.filter(p => p.status === 'sold').slice(0, 5).map(p => ({
+              id: p._id.toString(),
+              title: p.title,
+              status: p.status
+            })),
+            rejected: projects.filter(p => p.status === 'rejected').slice(0, 5).map(p => ({
+              id: p._id.toString(),
+              title: p.title,
+              status: p.status
+            }))
+          };
+
+          return {
+            ...user.toObject(),
+            whatsappNumbers,
+            projectStats,
+            recentProjectIds,
+            projectsByStatus
+          };
+        } catch (error) {
+          console.error(`Error processing user ${user._id}:`, error);
+          return {
+            ...user.toObject(),
+            whatsappNumbers: [],
+            projectStats: { available: 0, pending: 0, sold: 0, rejected: 0, total: 0 },
+            recentProjectIds: [],
+            projectsByStatus: { available: [], pending: [], sold: [], rejected: [] }
+          };
+        }
+      })
+    );
+
     res.json({ 
-      users,
-      total: users.length,
-      verified: users.filter(u => u.isVerified).length,
-      unverified: users.filter(u => !u.isVerified).length,
-      admins: users.filter(u => u.role === 'admin').length
+      users: usersWithProjects,
+      total: usersWithProjects.length,
+      verified: usersWithProjects.filter(u => u.isVerified).length,
+      unverified: usersWithProjects.filter(u => !u.isVerified).length,
+      admins: usersWithProjects.filter(u => u.role === 'admin').length
     });
   } catch (err) {
     console.error('Get all users error:', err.message);

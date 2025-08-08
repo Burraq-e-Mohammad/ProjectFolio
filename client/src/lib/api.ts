@@ -3,8 +3,8 @@ import axios from 'axios';
 // Create axios instance with base configuration
 const baseURL = import.meta.env.VITE_API_URL || 
   (import.meta.env.PROD 
-    ? 'https://eloquent-reprieve-production.up.railway.app' // Your actual Railway URL
-    : 'https://eloquent-reprieve-production.up.railway.app' // Use Railway for both dev and prod
+    ? 'https://eloquent-reprieve-production.up.railway.app'
+    : 'https://eloquent-reprieve-production.up.railway.app'
   );
 
 const api = axios.create({
@@ -18,9 +18,20 @@ const api = axios.create({
 // Add request logging
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Prefer admin token for admin endpoints; fall back to user token
+    const isAdminEndpoint = (
+      config.url?.includes('/api/auth/admin') ||
+      config.url?.includes('/api/projects/pending') ||
+      config.url?.includes('/api/projects/') ||
+      config.url?.includes('/api/manual-payments/admin') ||
+      config.method?.toLowerCase() === 'put' && config.url?.includes('/api/manual-payments/') ||
+      config.method?.toLowerCase() === 'post' && config.url?.includes('/api/manual-payments/')
+    );
+    const adminToken = localStorage.getItem('admin_token');
+    const userToken = localStorage.getItem('token');
+    const tokenToUse = isAdminEndpoint && adminToken ? adminToken : (userToken || adminToken || undefined);
+    if (tokenToUse) {
+      config.headers.Authorization = `Bearer ${tokenToUse}`;
     }
     return config;
   },
@@ -76,7 +87,7 @@ export const projectsAPI = {
   getMyProjects: () => api.get('/api/projects/my-projects'),
   getPendingProjects: () => api.get('/api/projects/pending'),
   approveProject: (id: string) => api.put(`/api/projects/${id}/approve`),
-  rejectProject: (id: string) => api.put(`/api/projects/${id}/reject`),
+  rejectProject: (id: string, rejectionMessage?: string) => api.put(`/api/projects/${id}/reject`, { rejectionMessage }),
   search: (query: string) => api.get(`/api/projects/search?q=${query}`),
   getByCategory: (category: string) => api.get(`/api/projects/category/${category}`),
   uploadImage: (data: FormData) => api.post('/api/projects/upload-image', data, {
@@ -133,6 +144,7 @@ export const manualPaymentsAPI = {
   getAdminPayments: (params?: any) => api.get('/api/manual-payments/admin/payments', { params }),
   createDispute: (paymentId: string, data: any) => api.post(`/api/manual-payments/${paymentId}/dispute`, data),
   deletePayment: (paymentId: string) => api.delete(`/api/manual-payments/${paymentId}`),
+  rejectPayment: (paymentId: string, rejectionMessage?: string) => api.put(`/api/manual-payments/${paymentId}/reject`, { rejectionMessage }),
 };
 
 // Verification API
@@ -176,6 +188,9 @@ export const instructionsAPI = {
 // Contact API
 export const contactAPI = {
   sendMessage: (data: any) => api.post('/api/contact/send', data),
+  getAllMessages: () => api.get('/api/contact/messages'),
+  replyToMessage: (messageId: string, data: { subject: string, replyMessage: string }) =>
+    api.patch(`/api/contact/reply/${messageId}`, data),
 };
 
 export default api; 

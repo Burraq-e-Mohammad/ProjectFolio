@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth } = require('../middleware/authMiddleware');
 const {
   submitVerification,
   uploadDocument,
@@ -45,13 +45,13 @@ function debugRouterUse(router, ...args) {
 }
 
 // Submit verification request
-router.post('/submit', authMiddleware, submitVerification);
+router.post('/submit', auth, submitVerification);
 
 // Upload verification document
-router.post('/upload-document', authMiddleware, upload.single('document'), uploadDocument);
+router.post('/upload-document', auth, upload.single('document'), uploadDocument);
 
 // Get user's verification status
-router.get('/user-verification', authMiddleware, getUserVerification);
+router.get('/user-verification', auth, getUserVerification);
 
 // Get verification requirements
 router.get('/requirements', getVerificationRequirements);
@@ -64,7 +64,7 @@ router.put('/review/:verificationId', reviewVerification);
 router.get('/pending', getPendingVerifications);
 
 // Test authentication middleware
-router.get('/test-auth', authMiddleware, (req, res) => {
+router.get('/test-auth', auth, (req, res) => {
   res.json({ user: req.user });
 });
 

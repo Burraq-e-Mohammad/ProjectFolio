@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth } = require('../middleware/authMiddleware');
 const {
   createEscrowPayment,
   confirmPayment,
   releasePayment,
   getEscrowAccount,
   getUserEscrowAccounts,
-  refundPayment
+  refundPayment,
+  rejectPayment
 } = require('../controllers/paymentController');
 
 function debugRouterUse(router, ...args) {
@@ -32,5 +33,8 @@ router.get('/escrow-accounts', getUserEscrowAccounts);
 
 // Refund payment
 router.post('/refund-payment', refundPayment);
+
+// Reject payment
+router.put('/:paymentId/reject', auth, rejectPayment);
 
 module.exports = router; 

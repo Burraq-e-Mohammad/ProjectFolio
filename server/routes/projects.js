@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { createProject, getProjects, getProjectById, updateProject, deleteProject, getMyProjects, getPendingProjects, approveProject, rejectProject, getAllProjectsForAdmin } = require('../controllers/projectController');
-const auth = require('../middleware/authMiddleware');
+const { 
+  createProject, getProjects, getProjectById, getMyProjects, updateProject, deleteProject, getAllProjectsForAdmin, getPendingProjects, approveProject, rejectProject, incrementProjectViews 
+} = require('../controllers/projectController');
+const { auth, optionalAuth } = require('../middleware/authMiddleware');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { cloudinary } = require('../utils/cloudinary');
@@ -53,6 +55,8 @@ router.post('/upload-image', auth, upload.single('image'), async (req, res) => {
 });
 
 // Parameterized routes (must come after specific routes)
-router.get('/:id', getProjectById);
+// Use optionalAuth so admins (or logged-in users) can be identified while allowing public access to available projects
+router.get('/:id', optionalAuth, getProjectById);
+router.post('/:id/views', incrementProjectViews);
 
 module.exports = router;

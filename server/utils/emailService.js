@@ -103,6 +103,34 @@ const sendProjectApprovedNotification = async (project, seller) => {
   }
 };
 
+// Send project rejection notification to seller
+const sendProjectRejectedNotification = async (project, seller, customMessage = null) => {
+  try {
+    const rejectionMessage = customMessage || 'Your project was not approved by us as it does not meet our standards.';
+    
+    const mailOptions = {
+      from: '"ProjectFolio" <projectfolio.official@gmail.com>',
+      to: seller.email,
+      subject: 'Your Project Was Not Approved - ProjectFolio',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">❌ Project Not Approved</h2>
+          <p>Your project <strong>${project.title}</strong> was not approved.</p>
+          <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+            <h3 style="margin-top: 0; color: #dc2626;">Rejection Reason:</h3>
+            <p>${rejectionMessage}</p>
+          </div>
+          <p>If you believe this is a mistake or want to discuss approval, please contact us at <strong>03165687188</strong>.</p>
+          <p style="color: #6b7280; font-size: 14px;">This is an automated notification from ProjectFolio.</p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    // Error sending project rejection notification
+  }
+};
+
 // Send payment verification notification to admin
 const sendPaymentVerificationNotification = async (payment, buyer, seller, project) => {
   try {
@@ -213,9 +241,117 @@ const sendPaymentVerifiedNotification = async (payment, buyer, seller, project) 
   }
 };
 
+// Send payment rejection notification to buyer
+const sendPaymentRejectedNotification = async (payment, buyer, project, customMessage = null) => {
+  try {
+    const rejectionMessage = customMessage || 'Your payment was not approved by us as it does not meet our standards.';
+    
+    const mailOptions = {
+      from: '"ProjectFolio" <projectfolio.official@gmail.com>',
+      to: buyer.email,
+      subject: 'Your Payment Was Not Approved - ProjectFolio',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">❌ Payment Not Approved</h2>
+          <p>Your payment for the project <strong>${project.title}</strong> was not approved.</p>
+          <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+            <h3 style="margin-top: 0; color: #dc2626;">Rejection Reason:</h3>
+            <p>${rejectionMessage}</p>
+          </div>
+          <p>If you believe this is a mistake or want to discuss approval, please contact us at <strong>03165687188</strong>.</p>
+          <p style="color: #6b7280; font-size: 14px;">This is an automated notification from ProjectFolio.</p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    // Error sending payment rejection notification
+  }
+};
+
+// Send payment received notification to seller
+const sendPaymentReceivedNotificationToSeller = async (payment, seller, project) => {
+  try {
+    const mailOptions = {
+      from: '"ProjectFolio" <projectfolio.official@gmail.com>',
+      to: seller.email,
+      subject: 'Your Project Has Been Sold! - ProjectFolio',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #059669;">🎉 Your Project Has Been Sold!</h2>
+          <p>Congratulations! Your project <strong>${project.title}</strong> has been sold and payment has been received by our team.</p>
+          <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+            <h3 style="margin-top: 0; color: #059669;">Project Details:</h3>
+            <p><strong>Title:</strong> ${project.title}</p>
+            <p><strong>Category:</strong> ${project.category}</p>
+            <p><strong>Price:</strong> RS ${project.price}</p>
+          </div>
+          <p>To receive your payment, please contact us at <strong>03165687188</strong> on WhatsApp.</p>
+          <p style="color: #6b7280; font-size: 14px;">Thank you for using ProjectFolio!<br/>Best regards,<br/>The ProjectFolio Team</p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    // Error sending payment received notification to seller
+  }
+};
+
+// Send contact message notification to admin
+const sendContactMessageNotification = async (contactMessage) => {
+  try {
+    const mailOptions = {
+      from: '"ProjectFolio" <projectfolio.official@gmail.com>',
+      to: 'burraqemohammad@gmail.com',
+      subject: `New Contact Message: ${contactMessage.subject} - ProjectFolio`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">📧 New Contact Message Received</h2>
+          <p>A new contact message has been submitted through the ProjectFolio contact form.</p>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Message Details:</h3>
+            <p><strong>From:</strong> ${contactMessage.firstName} ${contactMessage.lastName}</p>
+            <p><strong>Email:</strong> ${contactMessage.email}</p>
+            <p><strong>Subject:</strong> ${contactMessage.subject}</p>
+            <p><strong>Date:</strong> ${new Date(contactMessage.createdAt).toLocaleString()}</p>
+          </div>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Message Content:</h3>
+            <div style="background-color: white; padding: 15px; border-radius: 5px; border-left: 4px solid #2563eb;">
+              ${contactMessage.message.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          
+          <p>Please log in to the admin dashboard to review and reply to this message.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
+               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Go to Admin Dashboard
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px;">
+            This is an automated notification from ProjectFolio.
+          </p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending contact message notification:', error);
+  }
+};
+
 module.exports = {
   sendProjectApprovalNotification,
   sendProjectApprovedNotification,
+  sendProjectRejectedNotification,
   sendPaymentVerificationNotification,
   sendPaymentVerifiedNotification,
+  sendPaymentRejectedNotification,
+  sendPaymentReceivedNotificationToSeller,
+  sendContactMessageNotification,
 }; 

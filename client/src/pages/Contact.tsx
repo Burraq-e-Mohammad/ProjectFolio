@@ -40,9 +40,9 @@ const Contact = () => {
     },
     {
       icon: <MessageSquare className="h-6 w-6 text-tech-blue" />,
-      title: "Live Chat",
-      description: "Instant assistance",
-      contact: "Available on website",
+      title: "WhatsApp Support",
+      description: "Chat with us on WhatsApp",
+      contact: "+92 316 5687188",
       response: "Mon-Fri 9AM-9PM PKT"
     }
   ];

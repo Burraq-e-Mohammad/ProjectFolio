@@ -19,12 +19,15 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const Cart = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  const [dealModalOpen, setDealModalOpen] = useState(false);
+  const [dealCompleted, setDealCompleted] = useState(false);
 
   const { data: cart, isLoading, error } = useQuery({
     queryKey: ['cart'],
@@ -290,7 +293,26 @@ const Cart = () => {
                      </div>
 
                     <div className="space-y-3">
-                      <Button className="w-full" size="lg" onClick={handleCheckout}>
+                      {/* Make a Deal Button */}
+                      {!dealCompleted && (
+                        <Button className="w-full mb-2" variant="secondary" onClick={() => setDealModalOpen(true)}>
+                          Make a Deal
+                        </Button>
+                      )}
+                      {/* Modal for WhatsApp instructions */}
+                      <Dialog open={dealModalOpen} onOpenChange={setDealModalOpen}>
+                        <DialogContent className="max-w-md mx-auto text-center">
+                          <h2 className="text-xl font-bold mb-4">Contact Us on WhatsApp</h2>
+                          <p className="mb-4 text-base">
+                            Contact us on WhatsApp at <span className="font-semibold">03165687188</span> to get project authentic verification from client by asking your queries regarding project or asking for the delivery of project procedure or you want a video of working project.
+                          </p>
+                          <Button className="w-full" onClick={() => { setDealCompleted(true); setDealModalOpen(false); }}>
+                            Complete
+                          </Button>
+                        </DialogContent>
+                      </Dialog>
+                      {/* Proceed to Checkout Button (locked until deal completed) */}
+                      <Button className="w-full" size="lg" onClick={handleCheckout} disabled={!dealCompleted}>
                         <CreditCard className="mr-2 h-4 w-4" />
                         Proceed to Checkout
                         <ArrowRight className="ml-2 h-4 w-4" />

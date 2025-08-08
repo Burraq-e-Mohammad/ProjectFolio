@@ -2,7 +2,7 @@ const ManualPayment = require('../models/ManualPayment');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const { uploadToCloudinary } = require('../utils/cloudinary');
-const { sendPaymentVerificationNotification, sendPaymentVerifiedNotification } = require('../utils/emailService');
+const { sendPaymentVerificationNotification, sendPaymentVerifiedNotification, sendPaymentRejectedNotification } = require('../utils/emailService');
 
 // Create manual payment order
 const createManualPayment = async (req, res) => {
@@ -252,6 +252,13 @@ const verifyPayment = async (req, res) => {
         populatedPayment, 
         populatedPayment.buyerId, 
         populatedPayment.sellerId, 
+        populatedPayment.projectId
+      );
+      // Send payment received notification to seller
+      const { sendPaymentReceivedNotificationToSeller } = require('../utils/emailService');
+      await sendPaymentReceivedNotificationToSeller(
+        populatedPayment,
+        populatedPayment.sellerId,
         populatedPayment.projectId
       );
     } catch (emailError) {
@@ -613,6 +620,35 @@ const deletePayment = async (req, res) => {
   }
 };
 
+// Admin: Reject payment
+const rejectPayment = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can reject payments' });
+    }
+    const payment = await ManualPayment.findById(paymentId).populate('buyerId', 'firstName lastName email').populate('projectId');
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+    payment.status = 'rejected';
+    await payment.save();
+    
+    // Get custom rejection message from request body, or use default
+    const customMessage = req.body.rejectionMessage || null;
+    
+    // Send rejection email to buyer
+    try {
+      await sendPaymentRejectedNotification(payment, payment.buyerId, payment.projectId, customMessage);
+    } catch (emailError) {
+      // Don't fail the request if email fails
+    }
+    res.json({ message: 'Payment rejected successfully', payment });
+  } catch (error) {
+    res.status(500).json({ message: 'Error rejecting payment', error: error.message });
+  }
+};
+
 module.exports = {
   createManualPayment,
   getPaymentDetails,
@@ -625,5 +661,6 @@ module.exports = {
   confirmDelivery,
   paySeller,
   createDispute,
-  deletePayment
+  deletePayment,
+  rejectPayment
 }; 

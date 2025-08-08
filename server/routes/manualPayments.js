@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth } = require('../middleware/authMiddleware');
 const {
   createManualPayment,
   uploadPaymentProof,
@@ -15,7 +15,8 @@ const {
   getAdminPayments,
   createDispute,
   deletePayment,
-  updatePaymentProof
+  updatePaymentProof,
+  rejectPayment
 } = require('../controllers/manualPaymentController');
 
 // Configure multer for file uploads
@@ -45,39 +46,42 @@ const upload = multer({
 });
 
 // Create manual payment order
-router.post('/create', authMiddleware, createManualPayment);
+router.post('/create', auth, createManualPayment);
 
 // Get user's payments (specific route - must come before parameterized routes)
-router.get('/user/payments', authMiddleware, getUserPayments);
+router.get('/user/payments', auth, getUserPayments);
 
 // Get seller's payment orders (specific route - must come before parameterized routes)
-router.get('/seller/payments', authMiddleware, getSellerPayments);
+router.get('/seller/payments', auth, getSellerPayments);
 
 // Get admin dashboard payments (Admin only) (specific route - must come before parameterized routes)
-router.get('/admin/payments', authMiddleware, getAdminPayments);
+router.get('/admin/payments', auth, getAdminPayments);
 
 // Upload payment proof
-router.post('/:paymentId/upload-proof', authMiddleware, upload.single('screenshot'), uploadPaymentProof);
+router.post('/:paymentId/upload-proof', auth, upload.single('screenshot'), uploadPaymentProof);
 
 // Update payment proof
-router.put('/:paymentId/update-proof', authMiddleware, upload.single('screenshot'), updatePaymentProof);
+router.put('/:paymentId/update-proof', auth, upload.single('screenshot'), updatePaymentProof);
 
 // Verify payment (Admin only)
-router.post('/:paymentId/verify', authMiddleware, verifyPayment);
+router.post('/:paymentId/verify', auth, verifyPayment);
 
 // Confirm delivery (Buyer only)
-router.post('/:paymentId/confirm-delivery', authMiddleware, confirmDelivery);
+router.post('/:paymentId/confirm-delivery', auth, confirmDelivery);
 
 // Pay seller (Admin only)
-router.post('/:paymentId/pay-seller', authMiddleware, paySeller);
+router.post('/:paymentId/pay-seller', auth, paySeller);
+
+// Reject payment (Admin only)
+router.put('/:paymentId/reject', auth, rejectPayment);
 
 // Create dispute
-router.post('/:paymentId/dispute', authMiddleware, createDispute);
+router.post('/:paymentId/dispute', auth, createDispute);
 
 // Delete payment order (Buyer only, pending payments only)
-router.delete('/:paymentId', authMiddleware, deletePayment);
+router.delete('/:paymentId', auth, deletePayment);
 
 // Get payment details
-router.get('/:paymentId', authMiddleware, getPaymentDetails);
+router.get('/:paymentId', auth, getPaymentDetails);
 
 module.exports = router; 

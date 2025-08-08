@@ -31,6 +31,7 @@ import PaymentInstructions from "./pages/PaymentInstructions";
 import EditPaymentOrder from './pages/EditPaymentOrder';
 import PaymentOrders from "./pages/PaymentOrders";
 import NotFound from "./pages/NotFound";
+import AdminContactMessages from "./pages/AdminContactMessages";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,11 @@ const App = () => {
               <Route path="/edit-payment-order" element={<EditPaymentOrder />} />
               <Route path="/project/:id" element={<ProjectDetails />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/admin/contact-messages" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminContactMessages />
+                </ProtectedRoute>
+              } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth } = require('../middleware/authMiddleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
@@ -18,16 +18,16 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
 // Protected routes
-router.get('/profile', authMiddleware, authController.getProfile);
-router.put('/profile', authMiddleware, authController.updateProfile);
-router.put('/password', authMiddleware, authController.updatePassword);
+router.get('/profile', auth, authController.getProfile);
+router.put('/profile', auth, authController.updateProfile);
+router.put('/password', auth, authController.updatePassword);
 
 // Create admin user (for initial setup)
 router.post('/create-admin', authController.createAdmin);
 
 // Admin routes
 router.post('/admin/login', authController.adminLogin);
-router.get('/admin/validate-token', authMiddleware, authController.validateAdminToken);
-router.get('/admin/users', authMiddleware, authController.getAllUsers);
+router.get('/admin/validate-token', auth, authController.validateAdminToken);
+router.get('/admin/users', auth, authController.getAllUsers);
 
 module.exports = router;
