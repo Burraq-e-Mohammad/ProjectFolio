@@ -325,7 +325,6 @@ const PaymentOrders = () => {
                               <span>{formatDate(payment.createdAt)}</span>
                             </span>
                             <span className="flex items-center space-x-1">
-                              <DollarSign className="h-4 w-4" />
                               <span>RS {payment.amount?.toLocaleString()}</span>
                             </span>
                           </CardDescription>
